@@ -1,0 +1,42 @@
+name: Nightly Large-Scale Fuzzing
+
+on:
+  schedule:
+    # Run every night at 02:00 UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      trials:
+        description: 'Number of Monte Carlo trials'
+        required: true
+        default: '10000000'
+        type: string
+
+jobs:
+  fuzz:
+    name: 10M+ Monte Carlo Soundness Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run 10M+ Empirical Fuzzing Suite
+        run: |
+          python benchmarks/large_scale_fuzz.py --trials ${{ github.event.inputs.trials || '10000000' }} --scenarios 1000 --json-out fuzz-results.json
+
+      - name: Upload Verification Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fuzz-verification-summary
+          path: fuzz-results.json

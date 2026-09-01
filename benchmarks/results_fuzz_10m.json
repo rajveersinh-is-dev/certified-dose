@@ -1,0 +1,12 @@
+{
+  "total_trials": 10000000,
+  "total_scenarios": 1000,
+  "samples_per_scenario": 10000,
+  "violations_found": 0,
+  "min_conservatism_margin": 0.021038093880915598,
+  "mean_conservatism_margin": 0.035489265571019474,
+  "max_conservatism_margin": 0.1909687507615594,
+  "elapsed_seconds": 0.4930795000400394,
+  "throughput_trials_per_sec": 20280705.23959721,
+  "soundness_verified": true
+}
