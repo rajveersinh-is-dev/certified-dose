@@ -233,36 +233,49 @@ class Interval:
         - Odd powers: strictly monotonic.
         - Even powers: if interval straddles zero, lower bound is 0.
 
-        For positive float powers:
-        - Requires interval lo >= 0.
+        For fractional powers:
+        - Positive powers: requires interval lo >= 0.
+        - Negative powers: inverts order via 1.0 / (self ** (-exponent)) after verifying 0 not in interval.
 
         Raises:
-            ValueError: If power is invalid for negative intervals.
+            ValueError: If fractional power is applied to negative interval.
+            ZeroDivisionError: If negative power is applied to interval containing zero.
         """
-        if isinstance(exponent, int):
-            if exponent == 0:
-                return Interval(1.0, 1.0)
-            if exponent < 0:
-                return 1.0 / (self ** (-exponent))
-            if exponent % 2 == 1:
-                return Interval(self._lo**exponent, self._hi**exponent)
+        if not isinstance(exponent, (int, float)):
+            return NotImplemented
+
+        if exponent == 0:
+            return Interval(1.0, 1.0)
+
+        if exponent < 0:
+            if self.contains(0.0):
+                raise ZeroDivisionError(
+                    f"Interval negative power on interval containing zero [{self._lo}, {self._hi}] is unbounded."
+                )
+            return 1.0 / (self ** (-exponent))
+
+        # Check if exponent represents an integer
+        if isinstance(exponent, int) or (
+            isinstance(exponent, float) and exponent.is_integer()
+        ):
+            exp_int = int(exponent)
+            if exp_int % 2 == 1:
+                return Interval(self._lo**exp_int, self._hi**exp_int)
             # Even power
             if self._lo >= 0:
-                return Interval(self._lo**exponent, self._hi**exponent)
+                return Interval(self._lo**exp_int, self._hi**exp_int)
             if self._hi <= 0:
-                return Interval(self._hi**exponent, self._lo**exponent)
+                return Interval(self._hi**exp_int, self._lo**exp_int)
             # Straddles zero
-            max_val = max(abs(self._lo), abs(self._hi)) ** exponent
+            max_val = max(abs(self._lo), abs(self._hi)) ** exp_int
             return Interval(0.0, max_val)
 
-        if isinstance(exponent, float):
-            if self._lo < 0:
-                raise ValueError(
-                    f"Fractional power not defined for negative interval [{self._lo}, {self._hi}]"
-                )
-            return Interval(self._lo**exponent, self._hi**exponent)
-
-        return NotImplemented
+        # Fractional positive power
+        if self._lo < 0:
+            raise ValueError(
+                f"Fractional power not defined for negative interval [{self._lo}, {self._hi}]"
+            )
+        return Interval(self._lo**exponent, self._hi**exponent)
 
     def exp(self) -> Interval:
         """Computes element-wise exponential e^x."""

@@ -182,6 +182,23 @@ def test_interval_powers() -> None:
     with pytest.raises(ValueError, match="Fractional power not defined"):
         _ = Interval(-2.0, 2.0) ** 1.5
 
+    # Regression test: negative fractional power
+    neg_frac = Interval(4.0, 9.0) ** -0.5
+    assert math.isclose(neg_frac.lo, 1.0 / 3.0)
+    assert math.isclose(neg_frac.hi, 1.0 / 2.0)
+
+    # Regression test: integer-valued float power on negative straddling interval
+    even_float = Interval(-2.0, 3.0) ** 2.0
+    assert even_float.lo == 0.0
+    assert even_float.hi == 9.0
+
+    # Negative power on interval containing zero
+    with pytest.raises(ZeroDivisionError):
+        _ = Interval(-1.0, 2.0) ** -0.5
+
+    with pytest.raises(ZeroDivisionError):
+        _ = Interval(0.0, 2.0) ** -2
+
 
 def test_interval_math_functions() -> None:
     i = Interval(0.0, 2.0)
