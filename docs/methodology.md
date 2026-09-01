@@ -62,26 +62,28 @@ Let $X = [\underline{x}, \overline{x}]$ and $Y = [\underline{y}, \overline{y}]$.
 $$X \circ Y = \{ x \circ y \mid x \in X, y \in Y \}$$
 
 Specifically:
-- **Addition**:
-  $$X + Y = [\underline{x} + \underline{y}, \; \overline{x} + \overline{y}]$$
-- **Negation**:
-  $$-X = [-\overline{x}, \; -\underline{x}]$$
-- **Subtraction**:
-  $$X - Y = X + (-Y) = [\underline{x} - \overline{y}, \; \overline{x} - \underline{y}]$$
-- **Multiplication**:
-  $$X \times Y = [\min(\underline{x}\underline{y}, \underline{x}\overline{y}, \overline{x}\underline{y}, \overline{x}\overline{y}), \; \max(\underline{x}\underline{y}, \underline{x}\overline{y}, \overline{x}\underline{y}, \overline{x}\overline{y})]$$
-- **Reciprocal** (provided $0 \notin Y$):
-  $$Y^{-1} = \left[ \frac{1}{\overline{y}}, \; \frac{1}{\underline{y}} \right]$$
-- **Division** (provided $0 \notin Y$):
-  $$X / Y = X \times Y^{-1}$$
+- **Addition**: $`X + Y = [\underline{x} + \underline{y}, \; \overline{x} + \overline{y}]`$
+- **Negation**: $`-X = [-\overline{x}, \; -\underline{x}]`$
+- **Subtraction**: $`X - Y = X + (-Y) = [\underline{x} - \overline{y}, \; \overline{x} - \underline{y}]`$
+- **Multiplication**: $`X \times Y = [\min(P), \; \max(P)]`$ where $P = \{ \underline{x}\underline{y}, \underline{x}\overline{y}, \overline{x}\underline{y}, \overline{x}\overline{y} \}$
+- **Reciprocal** (provided $0 \notin Y$): $`Y^{-1} = \left[ \frac{1}{\overline{y}}, \; \frac{1}{\underline{y}} \right]`$
+- **Division** (provided $0 \notin Y$): $`X / Y = X \times Y^{-1}`$
 
 ### 3.2 Monotonic Functions
 
 For any strictly continuous and monotonic function $g: \mathbb{R} \to \mathbb{R}$:
-- If $g$ is monotonically non-decreasing (e.g., $e^x, \sqrt{x}$ for $x \ge 0$, $x^p$ for $p > 0$):
-  $$g(X) = [g(\underline{x}), \; g(\overline{x})]$$
-- If $g$ is monotonically non-increasing (e.g., $e^{-x}, 1/x$ for $x > 0$):
-  $$g(X) = [g(\overline{x}), \; g(\underline{x})]$$
+
+If $g$ is monotonically non-decreasing (e.g., $e^x, \sqrt{x}$ for $x \ge 0$, $x^p$ for $p > 0$):
+
+$$
+g(X) = [g(\underline{x}), \; g(\overline{x})]
+$$
+
+If $g$ is monotonically non-increasing (e.g., $e^{-x}, 1/x$ for $x > 0$):
+
+$$
+g(X) = [g(\overline{x}), \; g(\underline{x})]
+$$
 
 ---
 
@@ -121,12 +123,21 @@ Given a proposed coagulant dose $d$ and the disturbance interval box $\Theta = [
 
 $$T_{eff} = f(d, T_{in}, Q, pH, T)$$
 
-Our synthetic process model models two competing physical phenomena:
-1. **Colloidal destabilization and sedimentation removal**:
-   $$T_{\text{rem}} = T_{\text{floor}} + \frac{T_{in} - T_{\text{floor}}}{1 + c_1 \cdot \frac{d^{1.6}}{\phi(pH, T)}}$$
-   where $\phi(pH, T) = (1 + 0.015(T_{nom} - T)) \cdot (1 + 0.20(pH - pH_{opt})^2)$.
-2. **Restabilization / sweep-floc fragment carryover (over-dosing)**:
-   $$T_{\text{over}} = c_2 \cdot d^{2.1} \cdot \left(\frac{Q}{Q_{nom}}\right)^{0.85} \cdot (1 + 0.20(pH - pH_{opt})^2)$$
+Our synthetic process model accounts for two competing physical phenomena:
+
+#### 1. Colloidal Destabilization & Sedimentation Removal
+
+$$
+T_{\text{rem}} = T_{\text{floor}} + \frac{T_{\text{in}} - T_{\text{floor}}}{1 + c_1 \cdot \frac{d^{1.6}}{\phi(\text{pH}, T)}}
+$$
+
+where $\phi(\text{pH}, T) = (1 + 0.015(T_{\text{nom}} - T)) \cdot (1 + 0.20(\text{pH} - \text{pH}_{\text{opt}})^2)$.
+
+#### 2. Restabilization & Carryover (Over-dosing)
+
+$$
+T_{\text{over}} = c_2 \cdot d^{2.1} \cdot \left(\frac{Q}{Q_{\text{nom}}}\right)^{0.85} \cdot (1 + 0.20(\text{pH} - \text{pH}_{\text{opt}})^2)
+$$
 
 Total effluent turbidity:
 
@@ -172,21 +183,21 @@ graph TD
     C -->|Exception / Timeout| F
 ```
 
-1. **Acceptance Criterion**:
-   If $`\sup \overline{\mathcal{R}}(d_{\text{cand}}) \le L_{\text{compliance}}`$, the candidate dose is **ACCEPTED**.
+#### 1. Acceptance Criterion
+If $`\sup \overline{\mathcal{R}}(d_{\text{cand}}) \le L_{\text{compliance}}`$, the candidate dose is **ACCEPTED**.
 
-2. **Bisection Search for Correction**:
-   If the candidate dose breaches the limit, a bounded bisection search across the admissible range $`[d_{\min}, d_{\max}]`$ identifies the lowest dose $`d_{\text{corr}}`$ such that:
+#### 2. Bisection Search for Correction
+If the candidate dose breaches the limit, a bounded bisection search across the admissible range $`[d_{\min}, d_{\max}]`$ identifies the lowest dose $`d_{\text{corr}}`$ such that:
 
-   $$
-   \sup \overline{\mathcal{R}}(d_{\text{corr}}) \le L_{\text{compliance}}
-   $$
+$$
+\sup \overline{\mathcal{R}}(d_{\text{corr}}) \le L_{\text{compliance}}
+$$
 
-   The action is tagged as **REJECTED_CORRECTED**.
+The action is tagged as **REJECTED_CORRECTED**.
 
-3. **Strict Fail-Safe Invariant**:
-   If no safe dose exists in the search domain (e.g. extreme storm surge), or if **ANY** numerical error, domain error, or NaN is detected, the certifier immediately falls back to a pre-computed safe dose $`d_{\text{fallback}}`$.
-   **Under no circumstances is an unverified dose permitted to pass through.**
+#### 3. Strict Fail-Safe Invariant
+If no safe dose exists in the search domain (e.g. extreme storm surge), or if **ANY** numerical error, domain error, or NaN is detected, the certifier immediately falls back to a pre-computed safe dose $`d_{\text{fallback}}`$.
+**Under no circumstances is an unverified dose permitted to pass through.**
 
 ---
 

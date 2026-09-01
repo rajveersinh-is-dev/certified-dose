@@ -107,26 +107,34 @@ $$
 Multiplying by scalar $0.20 > 0$ and adding $1.0$ is monotonically increasing. Hence, $`\phi_{\text{pH}}(\text{pH}) \in [\phi_{\text{pH}}]`$ is exact.
 
 ### 3.3 Removal Turbidity $`T_{\text{rem}}`$
+
 Observe the partial derivatives of $`T_{\text{rem}}`$ with respect to each variable on the physical domain:
 
-1. **Influent Turbidity $`T_{\text{in}}`$**:
-   $$
-   \frac{\partial T_{\text{rem}}}{\partial T_{\text{in}}} = \frac{1}{1 + \frac{c_1 d^{1.6}}{\phi_T \phi_{\text{pH}}}} > 0
-   $$
-   $`T_{\text{rem}}`$ is strictly increasing in $`T_{\text{in}}`$. Its maximum occurs at $`\overline{T}_{\text{in}}`$.
+#### 1. Influent Turbidity ($`T_{\text{in}}`$)
 
-2. **Denominator Factors ($`\phi_T, \phi_{\text{pH}}`$)**:
-   Let $`K = \phi_T \cdot \phi_{\text{pH}} > 0`$. Then:
-   $$
-   \frac{\partial T_{\text{rem}}}{\partial K} = (T_{\text{in}} - T_{\text{floor}}) \cdot \frac{c_1 d^{1.6} K^{-2}}{\left(1 + \frac{c_1 d^{1.6}}{K}\right)^2} \ge 0
-   $$
-   $`T_{\text{rem}}`$ is monotonically non-decreasing in both $`\phi_T`$ and $`\phi_{\text{pH}}`$. Its maximum occurs when both $`\phi_T`$ and $`\phi_{\text{pH}}`$ are at their upper bounds ($`\overline{\phi}_T, \overline{\phi}_{\text{pH}}`$).
+$$
+\frac{\partial T_{\text{rem}}}{\partial T_{\text{in}}} = \frac{1}{1 + \frac{c_1 d^{1.6}}{\phi_T \phi_{\text{pH}}}} > 0
+$$
 
-3. **Coagulant Dose $d$**:
-   $$
-   \frac{\partial T_{\text{rem}}}{\partial d} = - \frac{(T_{\text{in}} - T_{\text{floor}}) \cdot \frac{1.6 c_1 d^{0.6}}{K}}{\left(1 + \frac{c_1 d^{1.6}}{K}\right)^2} \le 0
-   $$
-   $`T_{\text{rem}}`$ is monotonically non-increasing in $d$. For a scalar candidate dose $d$, $d$ has zero width, so no dependency exists.
+$`T_{\text{rem}}`$ is strictly increasing in $`T_{\text{in}}`$. Its maximum occurs at $`\overline{T}_{\text{in}}`$.
+
+#### 2. Denominator Factors ($`\phi_T, \phi_{\text{pH}}`$)
+
+Let $`K = \phi_T \cdot \phi_{\text{pH}} > 0`$. Then:
+
+$$
+\frac{\partial T_{\text{rem}}}{\partial K} = (T_{\text{in}} - T_{\text{floor}}) \cdot \frac{c_1 d^{1.6} K^{-2}}{\left(1 + \frac{c_1 d^{1.6}}{K}\right)^2} \ge 0
+$$
+
+$`T_{\text{rem}}`$ is monotonically non-decreasing in both $`\phi_T`$ and $`\phi_{\text{pH}}`$. Its maximum occurs when both $`\phi_T`$ and $`\phi_{\text{pH}}`$ are at their upper bounds ($`\overline{\phi}_T, \overline{\phi}_{\text{pH}}`$).
+
+#### 3. Coagulant Dose ($d$)
+
+$$
+\frac{\partial T_{\text{rem}}}{\partial d} = - \frac{(T_{\text{in}} - T_{\text{floor}}) \cdot \frac{1.6 c_1 d^{0.6}}{K}}{\left(1 + \frac{c_1 d^{1.6}}{K}\right)^2} \le 0
+$$
+
+$`T_{\text{rem}}`$ is monotonically non-increasing in $d$. For a scalar candidate dose $d$, $d$ has zero width, so no dependency exists.
 
 Because $`T_{\text{in}}`$ and $T$ appear **only once** in the entire expression for $`T_{\text{rem}}`$ and do not appear anywhere in $`T_{\text{over}}`$, evaluating $`T_{\text{rem}}`$ via interval arithmetic produces:
 
@@ -135,19 +143,24 @@ $$
 $$
 
 ### 3.4 Overdosing Turbidity $`T_{\text{over}}`$
+
 Observe the partial derivatives of $`T_{\text{over}}`$:
 
-1. **Hydraulic Flow Rate $Q$**:
-   $$
-   \frac{\partial T_{\text{over}}}{\partial Q} = c_2 d^{2.1} \cdot \frac{0.85}{Q_{\text{nom}}} \left(\frac{Q}{Q_{\text{nom}}}\right)^{-0.15} \cdot \phi_{\text{pH}} \ge 0
-   $$
-   $`T_{\text{over}}`$ is strictly increasing in $Q$. Its maximum occurs at $`\overline{Q}`$. Since $Q$ appears only once in the entire system, its interval bound is exact.
+#### 1. Hydraulic Flow Rate ($Q$)
 
-2. **pH Penalty $`\phi_{\text{pH}}`$**:
-   $$
-   \frac{\partial T_{\text{over}}}{\partial \phi_{\text{pH}}} = c_2 d^{2.1} \left(\frac{Q}{Q_{\text{nom}}}\right)^{0.85} \ge 0
-   $$
-   $`T_{\text{over}}`$ is strictly increasing in $`\phi_{\text{pH}}`$. Its maximum occurs at $`\overline{\phi}_{\text{pH}}`$.
+$$
+\frac{\partial T_{\text{over}}}{\partial Q} = c_2 d^{2.1} \cdot \frac{0.85}{Q_{\text{nom}}} \left(\frac{Q}{Q_{\text{nom}}}\right)^{-0.15} \cdot \phi_{\text{pH}} \ge 0
+$$
+
+$`T_{\text{over}}`$ is strictly increasing in $Q$. Its maximum occurs at $`\overline{Q}`$. Since $Q$ appears only once in the entire system, its interval bound is exact.
+
+#### 2. pH Penalty ($`\phi_{\text{pH}}`$)
+
+$$
+\frac{\partial T_{\text{over}}}{\partial \phi_{\text{pH}}} = c_2 d^{2.1} \left(\frac{Q}{Q_{\text{nom}}}\right)^{0.85} \ge 0
+$$
+
+$`T_{\text{over}}`$ is strictly increasing in $`\phi_{\text{pH}}`$. Its maximum occurs at $`\overline{\phi}_{\text{pH}}`$.
 
 ---
 
