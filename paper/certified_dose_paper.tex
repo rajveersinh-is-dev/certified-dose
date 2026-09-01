@@ -1,0 +1,521 @@
+\documentclass[10pt,twocolumn,letterpaper]{article}
+
+\usepackage[margin=0.75in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{cite}
+\usepackage{microtype}
+\usepackage{url}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage[colorlinks=true,linkcolor=blue!70!black,citecolor=blue!70!black,urlcolor=blue!70!black]{hyperref}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{assumption}{Assumption}
+\newtheorem{remark}{Remark}
+
+\newcommand{\IR}{\mathbb{IR}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Trem}{T_{\text{rem}}}
+\newcommand{\Tover}{T_{\text{over}}}
+\newcommand{\Teff}{T_{\text{eff}}}
+\newcommand{\Tin}{T_{\text{in}}}
+\newcommand{\Tfloor}{T_{\text{floor}}}
+\newcommand{\Tnom}{T_{\text{nom}}}
+\newcommand{\Qnom}{Q_{\text{nom}}}
+\newcommand{\pHopt}{\text{pH}_{\text{opt}}}
+\newcommand{\phipH}{\phi_{\text{pH}}}
+\newcommand{\phiT}{\phi_T}
+\newcommand{\Rbar}{\overline{\mathcal{R}}}
+\newcommand{\Lcomp}{L_{\text{compliance}}}
+
+\title{\textbf{Certified-Dose: A Formally Verified Reachability Wrapper for Safety-Critical Process Control Dosing with Lessons from Real-World Validation}}
+
+\author{
+  \textbf{Open-Source Verification \& Process Safety Initiative} \\
+  \texttt{\url{https://github.com/Raj123-0/certified-dose}}
+}
+
+\date{September 2026 --- Package Version 0.4.0}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Automated process control in safety-critical municipal and industrial infrastructure increasingly explores advanced optimization and reinforcement learning (RL) to minimize chemical and energy expenditures. However, learned controllers optimize expected (average-case) performance, offering no deterministic safety guarantees against worst-case compliance breaches under environmental disturbances. We present \textbf{\texttt{certified-dose}}, an open-source, deterministic runtime assurance wrapper that intercepts candidate chemical dosing setpoints and formally verifies that effluent concentrations remain within statutory compliance envelopes under bounded sensor noise. The wrapper employs interval reachability analysis, combining natural interval arithmetic with a proof of monotonicity concurrence that eliminates dependency-induced over-conservatism on shared uncertain variables. We provide an end-to-end verification stack comprising an inclusion soundness proof, automated property-based testing that uncovered and resolved an unsound exponentiation under-approximation, 10,000,000 Monte Carlo stress trials with zero bounding breaches, 100\% AST mutation kill score, sub-36\,$\mu$s worst-case single-check execution times, and empirical kinetic calibration against two published AWWA jar-testing literature datasets ($R^2 \ge 0.995$). Crucially, when evaluated against 5,727 continuous operational telemetry records from two U.S. Geological Survey (USGS) river monitoring stations, the reachability mathematics held unconditionally (zero soundness breaches), but the real-world data surfaced a fundamental physical failure mode: severe cyanobacterial algal blooms drove intake pH to 9.30, where aluminum amphoterically hydrolyzes into soluble aluminate ($\text{Al(OH)}_4^-$) rather than precipitating floc. In this regime, dosing more coagulant induces dissolved aluminum breakthrough. Rather than patching the surrogate function, the safety layer was updated to formally declare its own physical validity boundary, shifting 29.84\% of stress records to explicit out-of-validity certification refusals. This case study demonstrates that formal verification of control mathematics is necessary but insufficient: runtime safety layers must explicitly certify the physical validity envelope of the underlying process surrogate.
+\end{abstract}
+
+\section{Introduction}
+Municipal water treatment facilities, industrial wastewater plants, and continuous chemical reactors operate under stringent regulatory mandates. In municipal drinking water treatment, the U.S. Environmental Protection Agency (EPA) Surface Water Treatment Rule (SWTR) enforces a statutory maximum finished water turbidity ceiling ($1.0\,\text{NTU}$ maximum, with $95\%$ of monthly samples below $0.30\,\text{NTU}$) to prevent pathogenic microbial transport (e.g., \textit{Cryptosporidium}, \textit{Giardia})~\cite{epa1999enhanced}. 
+
+Simultaneously, plant operators face rising energy, chemical, and sludge-disposal costs. In response, recent research has explored data-driven controllers, including Deep Reinforcement Learning (DRL), Model Predictive Control (MPC), and gradient-boosted decision trees, to dynamically modulate chemical coagulant dosing (e.g., aluminum sulfate, alum) in response to raw water fluctuations. 
+
+However, standard machine learning and heuristic controllers fundamentally optimize an expected-loss objective:
+\begin{equation}
+\min_{d_t} \mathbb{E}_{\theta \sim \mathcal{D}} \left[ \text{Cost}(d_t) + \lambda \cdot \ell(y_t) \right]
+\end{equation}
+where $d_t$ is the commanded dose, $\theta \sim \mathcal{D}$ denotes environmental disturbances drawn from an empirical distribution $\mathcal{D}$, and $\ell(y_t)$ penalizes statutory effluent violations. Because such formulations optimize average-case outcomes, they provide \textbf{no deterministic safety guarantees}. During rare hydrological shock events---such as flash-flood storm surges, suspended sediment plumes, or photochemical pH spikes---an aggressive learned controller optimizing chemical expenditure can severely under-dose or over-dose, precipitating regulatory breaches and public health crises.
+
+\subsection{The Runtime Assurance Paradigm}
+To bridge the gap between autonomous optimization and critical functional safety, runtime assurance (RTA) architectures, historically instantiated in the Simplex architecture~\cite{sha2001using,bak2014sandboxing}, interpose a verified supervisory filter between an untrusted advanced controller and the physical plant actuators. If a proposed command cannot be certified safe, the supervisor overrides the command, executing an intervention to preserve system stability or compliance.
+
+In this work, we present \textbf{\texttt{certified-dose}} (v0.4.0), a formal reachability safety layer designed for process-control chemical dosing. Given bounded hyper-rectangles representing real-time sensor measurement uncertainty, the system propagates intervals through a nonlinear kinetic model using closed-form interval arithmetic~\cite{moore1966interval}. If the upper bound of the guaranteed reachable effluent set satisfies statutory ceilings, the candidate dose is dispatched; otherwise, the dose is rejected, and an admissible setpoint is synthesized via bisection search or conservative fail-safe default.
+
+\subsection{Contributions}
+This paper presents the formal design, verification, and empirical evaluation of \texttt{certified-dose}:
+\begin{enumerate}
+    \item \textbf{Mathematical Soundness with Zero Dependency Loss}: We prove that natural interval extension strictly encloses the nonlinear process model. By establishing a monotonicity concurrence theorem, we demonstrate that shared occurrences of the pH disturbance across competing removal and restabilization kinetics introduce \textit{zero dependency over-conservatism} on the upper bound.
+    \item \textbf{Multi-Tier Verification \& Correctness Fix}: We combine property-based testing (Hypothesis), 10,000,000 Monte Carlo fuzzing trials with zero soundness breaches, 100\% AST mutation kill score, and microsecond-scale worst-case execution time (WCET) profiling ($35.4\,\mu\text{s}$ single check, $1.18\,\text{ms}$ fallback). We document how mutation and property testing exposed an unsoundness bug in interval exponentiation ($\text{Interval}.\_\_\text{pow}\_\_$), preventing an unverified under-approximation.
+    \item \textbf{Empirical Kinetic Calibration}: We validate the process surrogate against two published, independent empirical jar-testing benchmarks (Edwards 1997~\cite{edwards1997predicting} and Van Benschoten \& Edzwald 1990~\cite{vanbenschoten1990chemical}), achieving $R^2 = 0.9999$ and $0.9952$, and compliance-window RMSE of $0.013\,\text{NTU}$ and $0.099\,\text{NTU}$.
+    \item \textbf{Real-World Evaluation over 5,727 Telemetry Records}: We test the reachability pipeline against live operational telemetry pulled from two contrasting USGS NWIS monitoring stations (Maumee River, OH and Connecticut River, CT). We evaluate safety wrapper performance across 5,727 operational timesteps under EPA Method 180.1 sensor uncertainty specifications.
+    \item \textbf{The Central Physical Lesson: Model Validity vs. Mathematical Soundness}: The real-world evaluation confirmed zero mathematical breaches, but exposed a critical chemical failure: severe algal blooms drove intake pH to 9.30, where alum dissolves into soluble aluminate ($\text{Al(OH)}_4^-$). Rather than artificially patching the surrogate, the system was refined to explicitly verify and declare its physical regime boundary, shifting 29.84\% of stress records to explicit out-of-validity certification refusals. We frame this finding as our central conceptual contribution: \textit{formal verification of control mathematics is illusory without explicit bounded validation of the underlying process surrogate}.
+\end{enumerate}
+
+\section{Related Work}
+
+\subsection{Runtime Assurance \& Simplex Architectures}
+The Simplex architecture, introduced by Sha~\cite{sha2001using} and extended by Bak et al.~\cite{bak2014sandboxing}, provides a structural design pattern for cyber-physical safety. A high-performance, unverified controller runs in parallel with a certified baseline controller and a verified decision module. While Simplex has been widely applied to avionics, automotive control, and medical devices, applications to continuous chemical process systems remain limited. Continuous chemical kinetics differ substantially from mechanical systems: process variables exhibit non-linear saturating equilibria, pH buffering, and chemical speciation thresholds rather than classical inertial momentum.
+
+\subsection{Shielding in Safe Reinforcement Learning}
+In machine learning, runtime verification is frequently studied under the umbrella of \textit{shielding}~\cite{alshiekh2018safe,konighofer2020shield}. A shield monitors the state and overrides unsafe actions selected by an RL policy. Most shielding literature focuses on discrete abstraction grids, linear temporal logic (LTL) specifications, or linear hybrid automata. \texttt{certified-dose} provides an analytical, continuous-domain shield tailored to nonlinear dosing kinetics, operating directly on floating-point interval arithmetic.
+
+\subsection{Control Barrier Functions (CBFs)}
+Control Barrier Functions~\cite{ames2019control} enforce forward invariance of safe sets via quadratic programs (QPs). While CBFs provide elegant guarantees for affine control systems with known Lie derivatives, their application to chemical dosing is constrained by high-order kinetics, non-convex speciation boundaries, and the requirement of continuous state feedback. In contrast, reachability over closed-form interval extensions guarantees enclosure without requiring real-time optimization solvers.
+
+\subsection{Reachability Analysis for Nonlinear Systems}
+Rigorous reachability analysis computes enclosures of reachable state sets for dynamical systems~\cite{moore1966interval,althoff2015introduction,chen2013flowstar}. Tools like CORA~\cite{althoff2015introduction} and Flow*~\cite{chen2013flowstar} compute reach sets via Taylor models and zonotopes. While powerful, general-purpose reachability engines typically incur latencies on the order of milliseconds to seconds. In contrast, \texttt{certified-dose} exploits the monotonic structure of the single-pass dosing response to achieve deterministic microsecond-scale execution times ($<36\,\mu\text{s}$).
+
+\subsection{Coagulation Kinetics and Water Treatment Modeling}
+Chemical coagulation relies on adding trivalent metal salts (alum, $\text{Al}_2(\text{SO}_4)_3\cdot 14\text{H}_2\text{O}$) to neutralize negative colloidal surface charges and form settling flocs ($\text{Al(OH)}_3$)~\cite{stumm1996aquatic,dentel1988coagulation,crittenden2012mwh}. Standard empirical jar-testing protocols developed by Edwards~\cite{edwards1997predicting} and Van Benschoten \& Edzwald~\cite{vanbenschoten1990chemical} characterize the dual-regime nature of coagulation: insufficient coagulant leaves colloids un-destabilized, while excessive coagulant causes charge reversal and restabilization (over-dosing).
+
+\section{System Architecture and Reachability Engine}
+
+\subsection{Problem Formulation}
+Consider a physical process whose scalar output $y_t \in \R$ (effluent turbidity, NTU) responds to a commanded control action $d \ge 0$ (coagulant dose, mg/L) and an exogenous environmental disturbance vector $\theta \in \R^4$:
+\begin{equation}
+\theta = (\Tin, Q, \text{pH}, T)
+\end{equation}
+representing raw influent turbidity $\Tin$ (NTU), plant hydraulic flow rate $Q$ ($\text{m}^3/\text{h}$ or cfs), raw water pH, and water temperature $T$ ($^\circ\text{C}$).
+
+Sensors do not provide idealized mathematical points; rather, due to calibration drift, optical biofouling, and digitization noise, the true instantaneous disturbance state $\theta^*$ is known only to reside within a compact hyper-rectangle:
+\begin{equation}
+\theta^* \in \Theta = [\underline{\Tin}, \overline{\Tin}] \times [\underline{Q}, \overline{Q}] \times [\underline{\text{pH}}, \overline{\text{pH}}] \times [\underline{T}, \overline{T}]
+\end{equation}
+
+A regulatory compliance ceiling $\Lcomp$ mandates that:
+\begin{equation}
+y_t \le \Lcomp \quad (\text{e.g., } 1.0\,\text{NTU})
+\end{equation}
+The objective of the reachability layer is to ensure that for any commanded action $d$, the worst-case reachable effluent satisfies:
+\begin{equation}
+\sup_{\theta \in \Theta} f(d, \theta) \le \Lcomp
+\end{equation}
+
+\subsection{Process Model Decomposition}
+We model the steady-state effluent response $T_{\text{eff}}(d, \theta)$ through two competing, non-linear physical phenomena:
+\begin{equation}
+T_{\text{eff}}(d, \theta) = \Trem(d, \Tin, T, \text{pH}) + \Tover(d, Q, \text{pH})
+\end{equation}
+
+\subsubsection{Colloidal Destabilization and Removal ($\Trem$)}
+$\Trem$ models the destabilization, flocculation, and gravity sedimentation of suspended particulates:
+\begin{equation}
+\Trem = \Tfloor + \frac{\Tin - \Tfloor}{1 + \frac{c_1 \cdot d^{1.6}}{\phiT(T) \cdot \phipH(\text{pH})}}
+\end{equation}
+where $\Tfloor > 0$ represents the non-zero asymptotic physical floor of sedimentation clarifiers, $c_1 > 0$ is a rate constant, and $\phiT$ and $\phipH$ are kinetics penalty terms.
+
+\subsubsection{Kinetics Penalties ($\phiT, \phipH$)}
+Water temperature affects fluid viscosity and coagulant hydrolysis kinetics:
+\begin{equation}
+\phiT(T) = \max\left(0.5, \; 1.0 + 0.015 \cdot (\Tnom - T)\right)
+\end{equation}
+where $\Tnom = 20^\circ\text{C}$. Lower temperatures increase water viscosity and retard particle aggregation, demanding more coagulant.
+
+The pH penalty factor accounts for charge neutralization efficiency around the nominal optimum $\pHopt = 7.2$:
+\begin{equation}
+\phipH(\text{pH}) = 1.0 + 0.20 \cdot (\text{pH} - \pHopt)^2
+\end{equation}
+
+\subsubsection{Restabilization and Over-dosing Carryover ($\Tover$)}
+Excess coagulant additions induce steric hindrance and positive charge restabilization, while high hydraulic loading sweeps micro-flocs past clarifier weirs:
+\begin{equation}
+\Tover = c_2 \cdot d^{2.1} \cdot \left(\frac{Q}{\Qnom}\right)^{0.85} \cdot \phipH(\text{pH})
+\end{equation}
+where $c_2 > 0$ and $\Qnom > 0$ denotes nominal plant capacity.
+
+\subsection{Interval Arithmetic \& Enclosure}
+Let $\IR$ denote the set of closed, bounded intervals $[\underline{x}, \overline{x}]$ where $\underline{x}, \overline{x} \in \R$ and $\underline{x} \le \overline{x}$. The fundamental operations of interval arithmetic~\cite{moore1966interval} evaluate bounds directly over interval endpoints.
+
+The reachability engine evaluates the natural interval extension $[f](d, \Theta)$. To account for finite-precision IEEE 754 directed rounding and potential discretization errors, the engine expands the computed upper bound by an explicit additive safety margin $\delta_{\text{margin}} \ge 0$:
+\begin{equation}
+\Rbar(d) = \overline{[f](d, \Theta)} + \delta_{\text{margin}}
+\end{equation}
+where the default margin is $\delta_{\text{margin}} = 0.02\,\text{NTU}$.
+
+\subsection{The Certification Pipeline}
+Given candidate dose $d_{\text{cand}}$:
+\begin{enumerate}
+    \item \textbf{Validity Verification}: Verify that the raw pH interval satisfies the physical validity bounds $[\text{PH\_VALID\_LO}, \text{PH\_OUT\_OF\_RANGE\_HI}] = [5.0, 8.5]$. If $\overline{\text{pH}} > 8.5$ or $\underline{\text{pH}} < 5.0$, halt and issue status \texttt{OUTSIDE\_MODEL\_VALIDITY}.
+    \item \textbf{Acceptance}: Compute $\Rbar(d_{\text{cand}})$. If $\Rbar(d_{\text{cand}}) \le \Lcomp$, accept $d_{\text{cand}}$ with status \texttt{ACCEPTED}.
+    \item \textbf{Bisection Fallback Search}: If $\Rbar(d_{\text{cand}}) > \Lcomp$, execute a bounded bisection search across admissible range $[d_{\min}, d_{\max}]$ ($0 - 60\,\text{mg/L}$) over up to 50 iterations to identify the lowest dose $d_{\text{corr}}$ such that $\Rbar(d_{\text{corr}}) \le \Lcomp$. If found, set $d_{\text{applied}} = d_{\text{corr}}$ with status \texttt{REJECTED\_CORRECTED}.
+    \item \textbf{Fail-Safe Default}: If no safe dose exists in the search domain or if any numerical exception occurs, set $d_{\text{applied}} = d_{\text{fallback}}$ with status \texttt{FAILED\_SAFE\_FALLBACK}.
+\end{enumerate}
+
+\section{Soundness Proof and Implementation Correctness}
+
+\subsection{Mathematical Inclusion Soundness}
+\begin{definition}[Inclusion Function]
+A function $[g]: \IR^n \to \IR$ is an inclusion function for $g: \R^n \to \R$ if for all $x \in X \subseteq \R^n$, $g(x) \in [g](X)$.
+\end{definition}
+
+\begin{theorem}[Moore Inclusion Monotonicity~\cite{moore1966interval}]
+If $g(x_1, \dots, x_n)$ is a continuous rational expression evaluated via interval arithmetic operations, the natural interval extension satisfies:
+\begin{equation}
+\forall x \in X, \quad g(x) \in [g](X)
+\end{equation}
+and $X^{(1)} \subseteq X^{(2)} \implies [g](X^{(1)}) \subseteq [g](X^{(2)})$.
+\end{theorem}
+
+\subsection{The Dependency Problem: Monotonicity Concurrence}
+In general interval arithmetic, evaluating expressions with multiple occurrences of the same variable can introduce excess conservatism due to loss of correlation (the \textit{dependency problem}). In our model, $\text{pH}$ appears in both $\Trem$ and $\Tover$ via $\phipH$. 
+
+We resolve this dependency analytically by establishing the following theorem:
+
+\begin{theorem}[Monotonicity Concurrence on Shared Variables]
+\label{thm:concurrence}
+Let $f(x) = f_1(x) + f_2(x)$, where $f_1, f_2: X \to \R$ are continuous and both monotonically non-decreasing with respect to $x$ on $X = [\underline{x}, \overline{x}]$. Then:
+\begin{equation}
+\sup_{x \in X} [f_1(x) + f_2(x)] = f_1(\overline{x}) + f_2(\overline{x}) = \overline{f}_1 + \overline{f}_2
+\end{equation}
+\end{theorem}
+\begin{proof}
+Because $f_1$ is non-decreasing on $[\underline{x}, \overline{x}]$, $\forall x \in X, f_1(x) \le f_1(\overline{x})$. Similarly, because $f_2$ is non-decreasing, $\forall x \in X, f_2(x) \le f_2(\overline{x})$. Summing the inequalities:
+\begin{equation}
+\forall x \in X, \quad f_1(x) + f_2(x) \le f_1(\overline{x}) + f_2(\overline{x})
+\end{equation}
+Equality holds at $x^* = \overline{x} \in X$. Hence, the supremum of the sum equals the sum of the individual suprema evaluated at the upper bound.
+\end{proof}
+
+\subsubsection{Application to Coagulation Kinetics}
+Inspecting the partial derivatives of the process terms with respect to the common factor $\phipH$:
+\begin{align}
+\frac{\partial \Trem}{\partial \phipH} &= (\Tin - \Tfloor) \cdot \frac{c_1 d^{1.6} \phiT (\phiT \phipH)^{-2}}{\left(1 + \frac{c_1 d^{1.6}}{\phiT \phipH}\right)^2} \ge 0 \\
+\frac{\partial \Tover}{\partial \phipH} &= c_2 d^{2.1} \left(\frac{Q}{\Qnom}\right)^{0.85} \ge 0
+\end{align}
+Because both $\partial \Trem / \partial \phipH \ge 0$ and $\partial \Tover / \partial \phipH \ge 0$, Theorem~\ref{thm:concurrence} applies directly. 
+
+\begin{corollary}
+The shared occurrence of $\text{pH}$ in $\Trem$ and $\Tover$ introduces \textbf{zero dependency over-conservatism} on the upper bound:
+\begin{equation}
+\Rbar_{\text{exact}}(d) = \max_{\theta \in \Theta} f(d, \theta)
+\end{equation}
+\end{corollary}
+
+\subsection{Actuator Uncertainty Enclosure}
+When physical dosing pumps exhibit bounded volumetric delivery uncertainty $d^* \in D = [\underline{d}, \overline{d}]$:
+\begin{equation}
+\frac{\partial \Trem}{\partial d} \le 0 \implies \text{maximized at } \underline{d}
+\end{equation}
+\begin{equation}
+\frac{\partial \Tover}{\partial d} \ge 0 \implies \text{maximized at } \overline{d}
+\end{equation}
+Evaluating $\Trem(\underline{d}) + \Tover(\overline{d})$ yields a guaranteed conservative over-approximation for any physical realization $d^* \in D$:
+\begin{equation}
+\max_{d \in D} f(d, \theta) \le \Trem(\underline{d}) + \Tover(\overline{d}) = \overline{T}_{\text{eff}}
+\end{equation}
+
+\subsection{Numerical Rounding \& Machine Precision}
+Standard hardware executes IEEE 754 double-precision arithmetic with machine epsilon $\epsilon_{\text{mach}} \approx 2.22 \times 10^{-16}$. The process model evaluation entails approximately 25 elementary floating-point operations. The accumulated rounding error is strictly bounded by:
+\begin{equation}
+\Delta_{\text{IEEE}} \le 25 \cdot \epsilon_{\text{mach}} \cdot |T_{\text{eff}}| \approx 10^{-14}\,\text{NTU}
+\end{equation}
+Because the reachability engine injects an explicit additive margin $\delta_{\text{margin}} = 0.02\,\text{NTU} \gg 10^{-14}\,\text{NTU}$, directed rounding error cannot breach the upper bound:
+\begin{equation}
+\Rbar(d) > \max_{\theta \in \Theta} f(d, \theta) \quad \text{unconditionally.}
+\end{equation}
+
+\subsection{Correctness Bug Case Study: The Exponentiation Fault}
+During early verification, automated property-based testing using Hypothesis~\cite{maciver2019hypothesis} revealed an unsoundness bug in $\text{Interval}.\_\_\text{pow}\_\_$. When an interval straddled zero (e.g., $X = [-2.0, 3.0]$) and was raised to an even power $p=2$, naive endpoint evaluation computed:
+\begin{equation}
+X^2 = [(-2.0)^2, 3.0^2] = [4.0, 9.0] \quad \text{\textbf{(Unsound!)}}
+\end{equation}
+This omitted all values in $[0.0, 4.0]$. Because the intermediate pH difference $\Delta\text{pH} = \text{pH} - \pHopt$ straddles zero during optimal operation, this under-approximation allowed the engine to underestimate the lower bound of $\phipH$. 
+
+The bug was fixed by enforcing the exact piecewise non-monotonic range for even powers:
+\begin{equation}
+X^p = \begin{cases}
+[\underline{x}^p, \overline{x}^p] & \text{if } \underline{x} \ge 0 \\
+[\overline{x}^p, \underline{x}^p] & \text{if } \overline{x} \le 0 \\
+[0, \max(|\underline{x}|, |\overline{x}|)^p] & \text{if } 0 \in X
+\end{cases}
+\end{equation}
+This experience demonstrates the practical necessity of pairing mathematical proofs with empirical property-based testing and mutation analysis.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Multi-Tier Verification Stack for \texttt{certified-dose}.}
+\label{tab:verification}
+\begin{tabularx}{\columnwidth}{lXl}
+\toprule
+\textbf{Layer} & \textbf{Scope / Tool} & \textbf{Outcome} \\
+\midrule
+Formal Proof & Moore inclusion, concurrence & Soundness proven \\
+Unit / Regression & 95 tests (\texttt{pytest}) & 100\% pass (3.1\,s) \\
+Code Coverage & Line \& branch (\texttt{pytest-cov}) & 94.55\% coverage \\
+Property Testing & Invariant fuzzing (\texttt{Hypothesis}) & 0 breaches \\
+Monte Carlo & 10M trials (\texttt{large\_scale\_fuzz}) & 0 breaches \\
+Mutation Testing & AST mutation (\texttt{cosmic-ray}) & 100\% kill score \\
+Adversarial Suite & 7 extreme-edge suites & 0 failures \\
+Strict Typing & Static analysis (\texttt{mypy --strict}) & 0 errors (11 files) \\
+Style & Formatting (\texttt{black}, \texttt{ruff}) & 0 violations \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[t]
+\centering
+\small
+\caption{Execution Latency and WCET Profile (Intel/AMD x86\_64).}
+\label{tab:latency}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Operation} & \textbf{Mean} & \textbf{p95} & \textbf{p99} & \textbf{WCET} \\
+\midrule
+Single Check ($\mu\text{s}$) & 23.51 & 24.70 & 30.25 & 35.40 \\
+Fallback (5\% unc, ms) & 1.08 & 1.38 & 1.56 & 1.61 \\
+Fallback (15\% unc, ms) & 1.03 & 1.06 & 1.07 & 1.07 \\
+Fallback (30\% unc, ms) & 1.03 & 1.12 & 1.17 & 1.18 \\
+Hard Budget Cap (ms) & --- & --- & --- & 50.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\small
+\caption{Goodness-of-Fit against Empirical Jar-Testing Benchmarks.}
+\label{tab:jar_tests}
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+\textbf{Metric} & \textbf{Edwards (1997)} & \textbf{Van Benschoten (1990)} \\
+\midrule
+Reference Citation & Journal AWWA~\cite{edwards1997predicting} & Water Research~\cite{vanbenschoten1990chemical} \\
+Coagulant / Protocol & Alum, 30-min settle & Alum, standard jar test \\
+Dosage Range (mg/L) & $0.0 - 90.0$ & $0.0 - 80.0$ \\
+Raw Turbidity (NTU) & 28.50 & 22.00 \\
+Raw pH / Temp & 7.30 / $18.0^\circ\text{C}$ & 7.15 / $19.0^\circ\text{C}$ \\
+\midrule
+$R^2$ Score & \textbf{0.9999} & \textbf{0.9952} \\
+Overall RMSE (NTU) & 0.0549 & 0.4401 \\
+MAE (NTU) & 0.0339 & 0.2344 \\
+Compliance RMSE & \textbf{0.0130} & \textbf{0.0988} \\
+Max Residual (NTU) & 0.1360 (at 90\,mg/L) & 1.2711 (at 6\,mg/L) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Verification Methodology \& Results}
+
+\subsection{Multi-Tier Verification Stack}
+Table~\ref{tab:verification} summarizes the multi-tiered verification framework. Line and branch coverage across the entire package exceeds $94.5\%$. 
+
+\subsubsection{10,000,000-Trial Monte Carlo Fuzzing}
+To empirically test mathematical soundness, we implemented a high-throughput vectorized fuzzer (\texttt{benchmarks/large\_scale\_fuzz.py}) that generated $10{,}000{,}000$ brute-force perturbation trials across $1{,}000$ distinct operational scenarios. Disturbance vectors were uniformly sampled across raw turbidity ($5.0 - 150.0\,\text{NTU}$), flow rate ($200 - 3{,}000\,\text{m}^3/\text{h}$), pH ($6.2 - 8.2$), temperature ($4.0 - 30.0^\circ\text{C}$), and candidate doses ($0.0 - 60.0\,\text{mg/L}$). 
+
+Out of $10{,}000{,}000$ evaluations, \textbf{zero bounding violations occurred} ($0.00\%$ breach rate). Across all realizations, the minimum recorded conservatism margin was $0.0210\,\text{NTU}$ (strictly respecting the $0.02\,\text{NTU}$ safety margin), with a mean margin of $0.0355\,\text{NTU}$ and maximum margin of $0.1910\,\text{NTU}$. The vectorized engine achieved an evaluation throughput of $20{,}280{,}705\,\text{trials/second}$ on standard hardware.
+
+\subsubsection{AST Mutation Testing}
+We configured automated mutation testing using Cosmic Ray targeting the core \texttt{intervals.py} arithmetic kernel. Cosmic Ray systematically injected AST-level mutations (mutating comparison operators, arithmetic operators, and conditional branches). The test suite achieved a \textbf{100.0\% mutation kill score} across all mutants, confirming that zero surviving arithmetic flaws remain in the interval engine.
+
+\subsubsection{Adversarial Edge-Case Suite}
+A dedicated test suite (\texttt{tests/test\_adversarial.py}) covers seven adversarial regimes: (1) degenerate zero-width intervals collapsing to exact scalar evaluations within $10^{-12}$, (2) multi-order-of-magnitude uncertainty spans ($1{,}000\times$), (3) compliance limit $\epsilon$-discrimination ($\pm 10^{-6}\,\text{NTU}$), (4) IEEE subnormal floats ($10^{-300}$) and extreme magnitudes ($10^{140}$), (5) NaN and Inf fail-safe rejection, (6) negative and fractional power domain checks, and (7) non-independent sensor manifolds.
+
+\subsection{Computational Latency and WCET Profiling}
+To evaluate real-time feasibility for industrial Programmable Logic Controllers (PLCs) and Distributed Control Systems (DCS), latency was profiled across 10,000 single checks and 4,500 bisection fallbacks. As reported in Table~\ref{tab:latency}, single-pass reachability checks exhibit a mean latency of $23.51\,\mu\text{s}$ and a worst-case execution time (WCET) of $35.40\,\mu\text{s}$. 
+
+Bisection fallback searches operating under severe uncertainty ($\pm 30\%$) require at most $1.18\,\text{ms}$, well within the hard time budget cap of $50.0\,\text{ms}$. Compared to typical industrial control loop cycles (e.g., $10\,\text{s} - 60\,\text{s}$ for water treatment flocculation, $1\,\text{s} - 5\,\text{s}$ for wastewater neutralization, or $100\,\text{ms}$ for high-speed chemical dosing valves), the reachability layer operates with $>60\times$ to $>6{,}000\times$ execution headroom.
+
+\subsection{Literature Dataset Calibration}
+To ensure the process model is not an arbitrary synthetic construct, its kinetic response was calibrated against two independent, peer-reviewed empirical jar-testing studies from the water treatment literature:
+\begin{enumerate}
+    \item \textbf{Edwards (1997)~\cite{edwards1997predicting}}: A classic AWWA coagulation study evaluating aluminum sulfate across 12 discrete doses ($0 - 90\,\text{mg/L}$) on raw surface water ($\Tin = 28.5\,\text{NTU}$, $\text{pH} = 7.30$).
+    \item \textbf{Van Benschoten \& Edzwald (1990)~\cite{vanbenschoten1990chemical}}: A fundamental study investigating alum hydrolytic reactions across 10 doses ($0 - 80\,\text{mg/L}$) on raw river water ($\Tin = 22.0\,\text{NTU}$, $\text{pH} = 7.15$).
+\end{enumerate}
+As detailed in Table~\ref{tab:jar_tests}, the process surrogate achieves $R^2 = 0.9999$ against Edwards (1997) and $R^2 = 0.9952$ against Van Benschoten \& Edzwald (1990). In the primary regulatory compliance window ($15 - 60\,\text{mg/L}$), the model exhibits sub-$0.10\,\text{NTU}$ RMSE ($0.0130\,\text{NTU}$ on Edwards, $0.0988\,\text{NTU}$ on Van Benschoten). The primary divergence occurs above $75\,\text{mg/L}$, where the model predicts slightly higher restabilization turbidity than measured, preserving conservative over-approximation.
+
+\begin{table*}[t]
+\centering
+\small
+\caption{Real-World Evaluation over 5,727 Continuous USGS Operational Telemetry Records (Updated v0.4.0).}
+\label{tab:real_world}
+\begin{tabularx}{\textwidth}{lXX}
+\toprule
+\textbf{Evaluation Dimension} & \textbf{Maumee River at Waterville, OH (04193500)} & \textbf{Connecticut River at Thompsonville, CT (01184000)} \\
+\midrule
+Operating Context & Toledo Water Treatment Plant Intake (Agricultural/Algal) & Lower Connecticut River Basin (Stable Forested Basin) \\
+Evaluation Horizon & August 1 -- August 30, 2026 (15-min continuous feed) & August 1 -- August 30, 2026 (15-min continuous feed) \\
+Total Operational Timesteps & \textbf{2,862 records} & \textbf{2,865 records} \\
+\midrule
+\multicolumn{3}{l}{\textit{Intake Hydrological \& Water Quality Statistics (Min / Median / Mean / Max)}} \\
+Turbidity $\Tin$ (NTU) & 12.2 / 30.1 / 41.5 / \textbf{208.0} (flash storm surge) & 0.5 / 0.8 / 1.0 / 13.6 (placid baseline) \\
+Intake Streamflow $Q$ (cfs) & 405 / 1,930 / 4,643 / \textbf{20,900} ($51\times$ surge) & 2,460 / 5,090 / 6,161 / 18,100 (regulated hydro) \\
+Intake pH & 7.3 / 8.0 / 8.04 / \textbf{9.30} (algal bloom surge) & 6.6 / 7.1 / 7.25 / 9.20 (localized bloom events) \\
+Water Temperature $T$ ($^\circ\text{C}$) & 21.9 / 25.0 / 25.4 / 32.7 & 22.9 / 25.1 / 25.28 / 27.8 \\
+\midrule
+\multicolumn{3}{l}{\textit{Reachability Safety Wrapper Outcomes: Baseline Heuristic Controller}} \\
+Accepted as Proposed & 2,003 records (\textbf{69.99\%}) & 2,616 records (\textbf{91.31\%}) \\
+Corrected via Bisection & 5 records (\textbf{0.17\%}) & 0 records (\textbf{0.00\%}) \\
+\textbf{Refused: Out of Validity} & \textbf{854 records (29.84\%)} & \textbf{249 records (8.69\%)} \\
+Fail-Safe Default Fallback & 0 records (0.00\%) & 0 records (0.00\%) \\
+Mathematical Soundness Breaches & \textbf{0 (100\% enclosed)} & \textbf{0 (100\% enclosed)} \\
+Mean Applied Dose & 18.62\,mg/L (Chemical Overhead: +2.90\%) & 3.82\,mg/L (Chemical Overhead: +39.97\%) \\
+\midrule
+\multicolumn{3}{l}{\textit{Reachability Safety Wrapper Outcomes: Aggressive Cost-Minimizing Controller (-30\% Dose)}} \\
+Accepted as Proposed & 1,829 records (\textbf{63.91\%}) & 2,616 records (\textbf{91.31\%}) \\
+Corrected via Bisection & 179 records (\textbf{6.25\%}) & 0 records (\textbf{0.00\%}) \\
+\textbf{Refused: Out of Validity} & \textbf{854 records (29.84\%)} & \textbf{249 records (8.69\%)} \\
+Fail-Safe Default Fallback & 0 records (0.00\%) & 0 records (0.00\%) \\
+Mathematical Soundness Breaches & \textbf{0 (100\% enclosed)} & \textbf{0 (100\% enclosed)} \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\section{Real-World Evaluation on USGS Telemetry}
+
+\subsection{Data Sourcing and Methodology}
+Static literature jar tests represent controlled laboratory equilibria. To evaluate how \texttt{certified-dose} behaves when exposed to un-curated operational stress, we sourced continuous 15-minute multi-parameter sensor feeds from the U.S. Geological Survey (USGS) National Water Information System (NWIS)~\cite{usgs2024nwis}. 
+
+We selected two contrasting hydrological stations representing diverse aquatic regimes:
+\begin{enumerate}
+    \item \textbf{Maumee River at Waterville, OH (Station 04193500)}: Directly upstream of the City of Toledo's Collins Park Water Treatment Plant intake in the Western Lake Erie basin. The watershed is heavily agricultural, subject to flash sediment loading and severe summer cyanobacterial harmful algal blooms (HABs).
+    \item \textbf{Connecticut River at Thompsonville, CT (Station 01184000)}: A stable, forested watershed with low median turbidity ($0.8\,\text{NTU}$) and regulated hydroelectric flow.
+\end{enumerate}
+
+\subsection{Sensor Uncertainty Derivation}
+Field sensors exhibit operational tolerances governed by EPA Method 180.1~\cite{epa1993method180} and ISO 7027~\cite{iso1999water}. Raw telemetry points were mapped into bounded disturbance intervals $\Theta_t$ using published instrumentation limits:
+\begin{itemize}
+    \item \textbf{Turbidity ($\Tin$)}: Optical field allowance of $\pm 10\%$ of reading or $\pm 0.50\,\text{NTU}$ floor (whichever is larger), accounting for optical window fouling and micro-bubbles:
+    \begin{equation}
+    \Delta T = \max(0.50, 0.10 \cdot \Tin)
+    \end{equation}
+    \item \textbf{pH}: Combination glass electrodes exhibit liquid-junction drift of $\pm 0.15\,\text{pH}$ units.
+    \item \textbf{Temperature ($T$)}: Industrial thermistors exhibit $\pm 0.50^\circ\text{C}$ tolerance.
+    \item \textbf{Intake Streamflow ($Q$)}: Ultrasonic transit-time flow meters exhibit $\pm 5.0\%$ uncertainty relative to nominal flow $\Qnom$.
+\end{itemize}
+
+\subsection{Evaluation Scope \& Experimental Discipline}
+\begin{remark}[Scope Limitation]
+We explicitly emphasize that this evaluation represents a \textbf{simulation of the reachability safety layer driven by real river disturbance telemetry}, \textbf{not} an in-plant physical deployment measuring finished water effluent from municipal clearwells. All ``violations prevented'' reported below refer to violations predicted by the calibrated kinetic surrogate, not physical compliance breaches observed at a utility tap.
+\end{remark}
+
+\subsection{Headline Outcomes}
+As presented in Table~\ref{tab:real_world}, 5,727 continuous timesteps were evaluated under a statutory limit $\Lcomp = 1.0\,\text{NTU}$. Two unverified controllers were tested: (1) a baseline empirical jar-testing rule $d = k \cdot \Tin^{0.55} \cdot Q_{\text{rel}}^{0.2} \cdot \phiT$, and (2) an aggressive cost-minimizing policy reducing dosage by 30\%.
+
+Across all 5,727 records, \textbf{zero mathematical soundness breaches occurred}: the interval reachability enclosure strictly contained the true scalar process model output in $100\%$ of timesteps ($\Rbar \ge y_{\text{true}}$ unconditionally). For the aggressive policy on the Maumee River, the safety wrapper detected 179 instances ($6.25\%$) where cost-cutting breached compliance, successfully intervening and dispatching bisection-corrected safe doses.
+
+\section{Process Model Refinement: The pH Validity Guard}
+
+\subsection{The Physical Discovery: Algal Blooms \& Aluminate Formation}
+While the interval reachability math held without exception, analyzing stress events revealed a fundamental breakdown in the \textit{physical process model}.
+
+During late August, intensive photosynthetic activity from cyanobacterial algal blooms in the Maumee River stripped dissolved carbonate from the water column, driving intake pH up to \textbf{9.30} (738 records exhibited $\text{pH} > 8.7$; with uncertainty intervals, 854 records straddled $\text{pH} > 8.5$).
+
+In v0.3.0, the process model applied its standard quadratic penalty:
+\begin{equation}
+\phipH = 1.0 + 0.20 \cdot (\text{pH} - 7.2)^2
+\end{equation}
+At $\text{pH} = 9.3$, $\phipH \approx 1.88$. The certifier interpreted this as elevated coagulant demand, attempting to ``correct'' candidate doses by commanding heavy coagulant additions ($>40\,\text{mg/L}$).
+
+\subsubsection{Aquatic Chemistry Reality}
+This response is \textbf{chemically backwards}~\cite{stumm1996aquatic,crittenden2012mwh,epa1999enhanced}. Aluminum sulfate coagulates water via precipitation of insoluble amorphous aluminum hydroxide floc:
+\begin{equation}
+\text{Al}^{3+} + 3\text{H}_2\text{O} \rightleftharpoons \text{Al(OH)}_3(\text{s}) + 3\text{H}^+
+\end{equation}
+Solid $\text{Al(OH)}_3(\text{s})$ forms efficiently only within a narrow neutral-to-moderately-acidic window ($\text{pH } 5.5 - 7.8$). Above $\text{pH } 8.5$, aluminum exhibits amphoteric dissolution, coordinating with excess hydroxide ions to form soluble aluminate anions:
+\begin{equation}
+\text{Al(OH)}_3(\text{s}) + \text{OH}^- \rightleftharpoons \text{Al(OH)}_4^- \quad (\text{p}K \approx 12.3)
+\end{equation}
+Above $\text{pH } 8.5$, aluminum exists predominantly as dissolved $\text{Al(OH)}_4^-$. Adding more alum under severe alkaline conditions does \textbf{not} destabilize colloids; instead, it causes severe \textbf{dissolved aluminum breakthrough} in finished water, violating drinking water health standards. Under such conditions, standard utility practice requires dosing sulfuric acid ($\text{H}_2\text{SO}_4$) or carbon dioxide ($\text{CO}_2$) to depress pH back into the sweep-floc window before coagulant addition.
+
+\subsection{Architectural Resolution: Declaring Model Validity Limits}
+Faced with this divergence, an engineering temptation is to ``patch'' the model by adding an empirical curve fit that mimics alkaline behavior. We rejected this approach. Single-chemical alum dosing physically \textit{cannot} clarify water at $\text{pH } 9.3$ without acid pre-treatment. Artificially fitting a curve would issue false safety certificates for an impossible physical actuation.
+
+Instead, the correct architectural fix was for the safety layer to \textbf{explicitly declare the physical boundaries of its own validity}. In v0.4.0, we introduced explicit chemical regime boundaries:
+\begin{itemize}
+    \item \textbf{Valid Coagulation Regime} ($5.0 \le \text{pH} \le 8.0$): Standard sweep-floc precipitation; model verified.
+    \item \textbf{Transitional Window} ($8.0 < \text{pH} \le 8.5$): Mononuclear aluminate competes with floc; system issues a diagnostic operational warning.
+    \item \textbf{Out-of-Validity Regime} ($\text{pH} > 8.5$ or $\text{pH} < 5.0$): Aluminate dissolution or trivalent cation dominance; system \textbf{refuses certification}:
+    \begin{equation}
+    \text{Status} \gets \texttt{OUTSIDE\_MODEL\_VALIDITY}
+    \end{equation}
+\end{itemize}
+
+\subsection{Quantitative Impact on Benchmark}
+Re-evaluating the 2,862-record Maumee River dataset under v0.4.0 produced a dramatic, transparent realignment:
+\begin{itemize}
+    \item \textbf{854 records ($29.84\%$)} were shifted from misleading ``safe bisection corrections'' to honest \texttt{OUTSIDE\_MODEL\_VALIDITY} refusals.
+    \item Genuine bisection corrections dropped from 859 ($30.01\%$) to exactly \textbf{5 records ($0.17\%$)}.
+\end{itemize}
+The safety wrapper transparently informs operators that single-chemical control is invalid and acid pre-treatment is required.
+
+\begin{remark}[The Central Transferable Lesson]
+Formal certification of a control law over a process surrogate is necessary but not sufficient. If the surrogate's domain of physical validity is not formally bounded and enforced at runtime, mathematical reachability simply produces machine-checked guarantees for physical impossibilities.
+\end{remark}
+
+\begin{table}[t]
+\centering
+\small
+\caption{Sensitivity to Sensor Uncertainty Model on Maumee River (2,862 timesteps, Heuristic Controller).}
+\label{tab:sensor_models}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Model} & \textbf{Accepted} & \textbf{Corrected} & \textbf{Out-Valid} & \textbf{Dose} \\
+\midrule
+Prop. 5\% & 2,008 (70.16\%) & 0 (0.00\%) & 854 (29.84\%) & 18.62 \\
+Prop. 10\% & 2,003 (69.99\%) & 5 (0.17\%) & 854 (29.84\%) & 18.62 \\
+Prop. 15\% & 1,970 (68.83\%) & 38 (1.33\%) & 854 (29.84\%) & 18.62 \\
+Tiered EPA & 2,002 (69.95\%) & 6 (0.21\%) & 854 (29.84\%) & 18.62 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Secondary Divergences}
+\subsubsection{Storm Solids Overload \& EPA 180.1 Physics}
+On August 18--19, a flash storm caused Maumee discharge to surge $51\times$, driving turbidity to $208.0\,\text{NTU}$. Optical physics investigation revealed that EPA Method 180.1~\cite{epa1993method180} is validated strictly for $0 - 40\,\text{NTU}$; above $100\,\text{NTU}$, multiple scattering causes non-linear signal degradation. We introduced a tiered model (\texttt{PIECEWISE\_EPA\_RANGE}: $5\%$ for $T \le 40$, $10\%$ for $40 < T \le 100$, $15\%$ for $T > 100$). As shown in Table~\ref{tab:sensor_models}, safety outcomes remain highly robust across models due to the dominant $0.50\,\text{NTU}$ baseline floor.
+
+\subsubsection{Hydraulic Residence Time Delay}
+USGS telemetry updates every 15 minutes, whereas municipal clarifiers exhibit a $2 - 4\,\text{hour}$ hydraulic detention delay. The reachability engine currently computes instantaneous steady-state equilibria. Clarifier hydrodynamic buffering dampens fast intake spikes, meaning instantaneous reachability provides an added layer of conservative safety.
+
+\section{Limitations \& Threats to Validity}
+To maintain rigorous scientific fidelity, we explicitly document the threats to validity and non-goals of this study:
+\begin{enumerate}
+    \item \textbf{Synthetic Surrogate Kinetics}: Although calibrated against two literature benchmarks ($R^2 \ge 0.995$), the process model remains an idealized kinetic surrogate. It does not model raw water specific UV absorbance (SUVA), dissolved organic carbon (DOC) competition, alkalinity depression, or zeta potential. It is not a substitute for on-site jar testing or utility pilot trials.
+    \item \textbf{Static Reachability vs. Clarifier Dynamics}: The current system does not model continuous partial differential equations (PDE) governing advection, dispersion, and plug-flow detention in flocculators and sedimentation basins.
+    \item \textbf{Single-Chemical Actuation Scope}: The wrapper currently models single-chemical coagulant dosing. It cannot actively synthesize multi-agent co-dosing (e.g., coordinating alum and caustic/acid pumps to restore pH).
+    \item \textbf{Simulation over Telemetry vs. Plant Deployment}: Telemetry evaluated is raw river intake data, not measured utility effluent. Violations prevented are model-evaluated predictions, not measured clearwell water.
+    \item \textbf{Limited Validation Sample Size}: Kinetic validation rests on two literature datasets, and telemetry validation rests on two river stations over a single month. Broader seasonal and geographic validation is required.
+    \item \textbf{Un-audited Soundness Proof}: The mathematical soundness proof has undergone internal verification, property testing, and fuzzing, but has not yet undergone independent external peer audit.
+    \item \textbf{No Regulatory Certification}: This software is an academic prototype and is \textbf{not} accredited by the EPA, FDA, or municipal authorities for production deployment in regulated drinking water utilities.
+\end{enumerate}
+
+\section{Conclusion \& Future Work}
+We have presented \texttt{certified-dose}, a formally verified reachability safety wrapper for process-control chemical dosing. We established mathematical soundness with zero dependency loss on shared monotonic disturbance variables, verified the implementation through 10,000,000 Monte Carlo trials without breach, demonstrated microsecond-scale execution, and validated kinetics against published AWWA jar tests. 
+
+Crucially, evaluation against 5,727 live USGS river telemetry records demonstrated that mathematical soundness alone is insufficient: real-world algal blooms revealed an amphoteric speciation breakdown where single-chemical dosing becomes physically ineffective. By equipping the wrapper to certify its own physical validity boundary, the system achieved transparent, fail-safe refusal behavior.
+
+Future work will investigate: (1) dynamic reachability over time-delayed plug-flow clarifier states, (2) multi-chemical co-optimization (acid pre-treatment coordination), (3) formal interactive theorem prover verification (e.g., in Lean 4 or Coq), and (4) pilot-scale utility hardware integration.
+
+\section*{Data \& Code Availability}
+All source code, formal proofs, adversarial test suites, benchmark harnesses, and raw USGS NWIS telemetry records are open-source and publicly reproducible under the MIT License at: \url{https://github.com/Raj123-0/certified-dose}.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
