@@ -27,6 +27,11 @@ from certified_dose.simulate import (
     SimulationSummary,
     simulate_closed_loop,
 )
+from certified_dose.validation import (
+    EmpiricalDataset,
+    ModelValidationReport,
+    validate_synthetic_model,
+)
 
 __version__ = "0.1.0"
 
@@ -52,4 +57,7 @@ __all__ = [
     "SimulationSummary",
     "ClosedLoopSimulator",
     "simulate_closed_loop",
+    "EmpiricalDataset",
+    "ModelValidationReport",
+    "validate_synthetic_model",
 ]

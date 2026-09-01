@@ -66,3 +66,11 @@ def test_cli_dashboard_invocation(monkeypatch) -> None:
     args = mock_run.call_args[0][0]
     assert "streamlit" in args
     assert "8502" in args
+
+
+def test_cli_validate_command() -> None:
+    result = runner.invoke(app, ["validate"])
+    assert result.exit_code == 0
+    assert "Model Empirical Validation Report" in result.stdout
+    assert "Edwards (1997)" in result.stdout
+    assert "R² Score" in result.stdout
