@@ -417,6 +417,55 @@ def main() -> None:
         )
         st.plotly_chart(fig_bar, use_container_width=True)
 
+        # Operator Explainability and Sensitivity Attribution
+        exp = cert_res.explain()
+        with st.expander(
+            "🔎 Operator Explainability & Sensitivity Attribution", expanded=True
+        ):
+            e_col1, e_col2 = st.columns([1, 1])
+            with e_col1:
+                st.markdown(f"**Binding Constraint**: {exp.binding_constraint}")
+                st.markdown(
+                    f"**Safety Margin**: `{exp.safety_margin:+.3f} NTU` below ceiling"
+                )
+                st.markdown(
+                    f"**Actionable Operator Guidance**:\n> {exp.operator_guidance}"
+                )
+
+            with e_col2:
+                if exp.sensitivities:
+                    st.markdown(
+                        "**Uncertainty Attribution (% contribution to output spread)**"
+                    )
+                    sens_x = [
+                        s.relative_contribution_pct for s in reversed(exp.sensitivities)
+                    ]
+                    sens_y = [
+                        s.variable.replace("_", " ").title()
+                        for s in reversed(exp.sensitivities)
+                    ]
+                    fig_sens = go.Figure(
+                        go.Bar(
+                            x=sens_x,
+                            y=sens_y,
+                            orientation="h",
+                            marker={
+                                "color": [
+                                    "#e74c3c" if val > 30 else "#3498db"
+                                    for val in sens_x
+                                ]
+                            },
+                            text=[f"{v:.1f}%" for v in sens_x],
+                            textposition="auto",
+                        )
+                    )
+                    fig_sens.update_layout(
+                        xaxis_title="% Contribution",
+                        margin={"l": 20, "r": 20, "t": 20, "b": 20},
+                        height=200,
+                    )
+                    st.plotly_chart(fig_sens, use_container_width=True)
+
     with tab3:
         st.subheader("Formal Safety Methodology & Mathematical Guarantees")
         st.markdown(r"""

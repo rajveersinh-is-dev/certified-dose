@@ -169,3 +169,74 @@ def test_certifier_bisection_timeout_and_iteration_caps(
     assert res_zero.status == CertificationStatus.FAILED_SAFE_FALLBACK
     assert res_zero.certified_dose == 24.0
     assert "iteration cap is zero" in res_zero.reason
+
+
+def test_explain_accepted_dose(default_disturbances: dict[str, Interval]) -> None:
+    """Verifies explain() report on an accepted dose."""
+    wrapper = CertifiedDoseWrapper(compliance_limit=1.0)
+    res = wrapper.certify_action(20.0, default_disturbances)
+    assert res.status == CertificationStatus.ACCEPTED
+
+    exp = res.explain()
+    assert exp.status == CertificationStatus.ACCEPTED
+    assert exp.proposed_dose == 20.0
+    assert exp.certified_dose == 20.0
+    assert exp.compliance_limit == 1.0
+    assert not exp.violates_limit
+    assert exp.safety_margin > 0.0
+    assert "verified safe" in exp.operator_guidance
+    assert "1.00 NTU" in exp.binding_constraint
+
+    # Sensitivity attribution
+    assert len(exp.sensitivities) == 4
+    total_pct = sum(s.relative_contribution_pct for s in exp.sensitivities)
+    assert pytest.approx(100.0, abs=0.2) == total_pct
+    assert exp.top_contributor in {"turbidity", "temperature"}
+
+    # Text rendering and dictionary conversion
+    text = exp.format_text()
+    assert "Status: ACCEPTED" in text
+    assert "Safety Margin:" in text
+
+    d = exp.to_dict()
+    assert d["status"] == "ACCEPTED"
+    assert len(d["sensitivities"]) == 4
+
+
+def test_explain_rejected_corrected_dose(
+    default_disturbances: dict[str, Interval],
+) -> None:
+    """Verifies explain() report on a rejected candidate dose with bisection correction."""
+    wrapper = CertifiedDoseWrapper(compliance_limit=1.0)
+    res = wrapper.certify_action(2.0, default_disturbances)
+    assert res.status == CertificationStatus.REJECTED_CORRECTED
+
+    exp = res.explain()
+    assert exp.status == CertificationStatus.REJECTED_CORRECTED
+    assert exp.violates_limit is True
+    assert exp.worst_case_candidate is not None
+    assert exp.worst_case_candidate > 1.0
+    assert "Effluent turbidity limit = 1.00 NTU" in exp.binding_constraint
+    assert "violation" in exp.binding_constraint
+
+    # Sensitivity attribution for low dose is dominated by influent turbidity
+    assert exp.top_contributor == "turbidity"
+    assert exp.top_contributor_pct > 50.0
+    assert "Turbidity uncertainty accounts for" in exp.operator_guidance
+    assert "calibration" in exp.operator_guidance
+
+
+def test_explain_fallback_dose(default_disturbances: dict[str, Interval]) -> None:
+    """Verifies explain() report on emergency fallback."""
+    wrapper = CertifiedDoseWrapper(
+        fallback_dose=24.0,
+        compliance_limit=1.0,
+        bisection_max_iter=0,  # Forces fallback
+    )
+    res = wrapper.certify_action(2.0, default_disturbances)
+    assert res.status == CertificationStatus.FAILED_SAFE_FALLBACK
+
+    exp = res.explain()
+    assert exp.status == CertificationStatus.FAILED_SAFE_FALLBACK
+    assert exp.certified_dose == 24.0
+    assert "Emergency fail-safe activated" in exp.operator_guidance

@@ -201,6 +201,7 @@ def check_cmd(
 
     result = wrapper.certify_action(dose, disturbances)
     r_set = result.reachable_set
+    exp = result.explain()
 
     console.print(
         Panel.fit(
@@ -211,8 +212,49 @@ def check_cmd(
             f"[bold]Worst-Case Reachable Effluent:[/bold] [{r_set.lo:.3f}, {r_set.hi:.3f}] NTU\n"
             f"[bold]Certification Status:[/bold] [bold {'green' if result.status == 'ACCEPTED' else 'yellow'}]{result.status.value}[/]\n"
             f"[bold]Certified Output Action:[/bold] {result.certified_dose:.2f} mg/L\n"
+            f"[bold]Safety Margin:[/bold] {exp.safety_margin:+.3f} NTU below compliance limit\n"
+            f"[bold]Binding Constraint:[/bold] {exp.binding_constraint}\n"
             f"[bold]Reason:[/bold] {result.reason}",
             title="[bold cyan]Reachability Verification Result[/bold cyan]",
+        )
+    )
+
+    if exp.sensitivities:
+        sens_table = Table(
+            title="Input Uncertainty Sensitivity Attribution (OAT Breakdown)"
+        )
+        sens_table.add_column("Disturbance Variable", style="cyan")
+        sens_table.add_column("Input Interval", justify="center")
+        sens_table.add_column("Partial Output Spread (NTU)", justify="right")
+        sens_table.add_column("Uncertainty Share", justify="right", style="bold")
+        sens_table.add_column("Impact Driver", justify="left")
+
+        for s in exp.sensitivities:
+            interval_str = (
+                f"[{s.input_interval.lo:.2f}, {s.input_interval.hi:.2f}]"
+                if s.input_interval
+                else "N/A"
+            )
+            driver_str = (
+                "[bold red]Primary Driver[/bold red]"
+                if s.variable == exp.top_contributor
+                and s.relative_contribution_pct > 30.0
+                else "Secondary"
+            )
+            sens_table.add_row(
+                s.variable,
+                interval_str,
+                f"{s.partial_output_width:.3f} NTU",
+                f"{s.relative_contribution_pct:.1f}%",
+                driver_str,
+            )
+
+        console.print(sens_table)
+
+    console.print(
+        Panel.fit(
+            f"[bold yellow]Operator Actionable Guidance:[/bold yellow]\n{exp.operator_guidance}",
+            title="[bold green]Operator Guidance[/bold green]",
         )
     )
 
