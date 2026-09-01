@@ -27,6 +27,12 @@ from certified_dose.process_model import (
     SyntheticProcessModel,
 )
 from certified_dose.reachability import ReachabilityEngine, ReachableSet
+from certified_dose.real_world import (
+    InstrumentUncertaintySpecs,
+    RealWorldDataset,
+    RealWorldRecord,
+    derive_disturbance_intervals,
+)
 from certified_dose.simulate import (
     ClosedLoopSimulator,
     SimulationRecord,
@@ -77,4 +83,8 @@ __all__ = [
     "ModelValidationReport",
     "validate_synthetic_model",
     "validate_all_datasets",
+    "RealWorldRecord",
+    "RealWorldDataset",
+    "InstrumentUncertaintySpecs",
+    "derive_disturbance_intervals",
 ]

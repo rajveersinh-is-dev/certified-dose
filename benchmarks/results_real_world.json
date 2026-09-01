@@ -1,0 +1,489 @@
+{
+  "timestamp": "2026-09-01 16:36:47Z",
+  "datasets": {
+    "04193500": {
+      "site_id": "04193500",
+      "site_name": "Maumee River at Waterville OH (Toledo WTP Intake)",
+      "total_records_evaluated": 2862,
+      "nominal_flow_cfs": 1930.0,
+      "compliance_limit_ntu": 1.0,
+      "summary_statistics": {
+        "turbidity_ntu": {
+          "min": 12.2,
+          "median": 30.1,
+          "mean": 41.51530398322851,
+          "max": 208.0
+        },
+        "flow_cfs": {
+          "min": 405.0,
+          "median": 1930.0,
+          "mean": 4642.684835779175,
+          "max": 20900.0
+        },
+        "ph": {
+          "min": 7.3,
+          "median": 8.0,
+          "mean": 8.04454926624738,
+          "max": 9.3
+        },
+        "temperature_c": {
+          "min": 21.9,
+          "median": 25.0,
+          "mean": 25.417994409503844,
+          "max": 32.7
+        }
+      },
+      "heuristic_controller": {
+        "accepted_count": 2230,
+        "accepted_pct": 77.92,
+        "corrected_count": 632,
+        "corrected_pct": 22.08,
+        "fallback_count": 0,
+        "fallback_pct": 0.0,
+        "unverified_violations": 103,
+        "certified_violations": 0,
+        "mean_candidate_dose_mg_l": 18.1,
+        "mean_applied_dose_mg_l": 18.35,
+        "chemical_overhead_pct": 1.42,
+        "latency_ms": {
+          "mean": 0.1669,
+          "median": 0.0257,
+          "p95": 0.6414,
+          "p99": 1.0707,
+          "max": 7.0417
+        }
+      },
+      "aggressive_controller": {
+        "accepted_count": 2045,
+        "accepted_pct": 71.45,
+        "corrected_count": 817,
+        "corrected_pct": 28.55,
+        "fallback_count": 0,
+        "fallback_pct": 0.0,
+        "unverified_violations": 73,
+        "certified_violations": 0,
+        "mean_candidate_dose_mg_l": 17.49,
+        "mean_applied_dose_mg_l": 17.74,
+        "latency_ms": {
+          "mean": 0.2112,
+          "median": 0.0257,
+          "p95": 0.7167,
+          "p99": 1.1874,
+          "max": 1.8877
+        }
+      },
+      "soundness_checks": {
+        "model_soundness_breaches": 0,
+        "guarantee_held": true
+      },
+      "uncertainty_attribution_drivers": {
+        "turbidity": 2862
+      },
+      "flagged_stress_events_count": 738,
+      "flagged_stress_events_sample": [
+        {
+          "index": 8,
+          "timestamp": "2026-08-02T14:45:00.000-04:00",
+          "turbidity_ntu": 14.1,
+          "ph": 8.8,
+          "temperature_c": 25.4,
+          "flow_cfs": 493.0,
+          "heur_candidate_dose": 10.52,
+          "heur_certified_dose": 10.71,
+          "heur_status": "REJECTED_CORRECTED",
+          "heur_upper_bound": 1.0,
+          "aggr_candidate_dose": 10.53,
+          "aggr_certified_dose": 10.71,
+          "aggr_status": "REJECTED_CORRECTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 9,
+          "timestamp": "2026-08-02T15:00:00.000-04:00",
+          "turbidity_ntu": 14.7,
+          "ph": 8.8,
+          "temperature_c": 25.8,
+          "flow_cfs": 493.0,
+          "heur_candidate_dose": 10.72,
+          "heur_certified_dose": 10.96,
+          "heur_status": "REJECTED_CORRECTED",
+          "heur_upper_bound": 1.0,
+          "aggr_candidate_dose": 10.76,
+          "aggr_certified_dose": 10.96,
+          "aggr_status": "REJECTED_CORRECTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 10,
+          "timestamp": "2026-08-02T15:15:00.000-04:00",
+          "turbidity_ntu": 14.0,
+          "ph": 8.8,
+          "temperature_c": 25.9,
+          "flow_cfs": 493.0,
+          "heur_candidate_dose": 10.42,
+          "heur_certified_dose": 10.6,
+          "heur_status": "REJECTED_CORRECTED",
+          "heur_upper_bound": 1.0,
+          "aggr_candidate_dose": 10.49,
+          "aggr_certified_dose": 10.6,
+          "aggr_status": "REJECTED_CORRECTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 11,
+          "timestamp": "2026-08-02T15:30:00.000-04:00",
+          "turbidity_ntu": 14.2,
+          "ph": 8.9,
+          "temperature_c": 26.0,
+          "flow_cfs": 493.0,
+          "heur_candidate_dose": 10.49,
+          "heur_certified_dose": 10.99,
+          "heur_status": "REJECTED_CORRECTED",
+          "heur_upper_bound": 1.0,
+          "aggr_candidate_dose": 10.57,
+          "aggr_certified_dose": 10.99,
+          "aggr_status": "REJECTED_CORRECTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 12,
+          "timestamp": "2026-08-02T15:45:00.000-04:00",
+          "turbidity_ntu": 14.2,
+          "ph": 8.9,
+          "temperature_c": 25.9,
+          "flow_cfs": 473.0,
+          "heur_candidate_dose": 10.5,
+          "heur_certified_dose": 11.0,
+          "heur_status": "REJECTED_CORRECTED",
+          "heur_upper_bound": 1.0,
+          "aggr_candidate_dose": 10.57,
+          "aggr_certified_dose": 11.0,
+          "aggr_status": "REJECTED_CORRECTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 13,
+          "timestamp": "2026-08-02T16:00:00.000-04:00",
+          "turbidity_ntu": 14.8,
+          "ph": 8.9,
+          "temperature_c": 26.1,
+          "flow_cfs": 473.0,
+          "heur_candidate_dose": 10.72,
+          "heur_certified_dose": 11.28,
+          "heur_status": "REJECTED_CORRECTED",
+          "heur_upper_bound": 1.0,
+          "aggr_candidate_dose": 10.8,
+          "aggr_certified_dose": 11.28,
+          "aggr_status": "REJECTED_CORRECTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 14,
+          "timestamp": "2026-08-02T16:15:00.000-04:00",
+          "turbidity_ntu": 14.3,
+          "ph": 8.9,
+          "temperature_c": 26.6,
+          "flow_cfs": 473.0,
+          "heur_candidate_dose": 10.46,
+          "heur_certified_dose": 10.97,
+          "heur_status": "REJECTED_CORRECTED",
+          "heur_upper_bound": 1.0,
+          "aggr_candidate_dose": 10.61,
+          "aggr_certified_dose": 10.97,
+          "aggr_status": "REJECTED_CORRECTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 15,
+          "timestamp": "2026-08-02T16:30:00.000-04:00",
+          "turbidity_ntu": 14.9,
+          "ph": 8.9,
+          "temperature_c": 26.3,
+          "flow_cfs": 463.0,
+          "heur_candidate_dose": 10.74,
+          "heur_certified_dose": 11.31,
+          "heur_status": "REJECTED_CORRECTED",
+          "heur_upper_bound": 1.0,
+          "aggr_candidate_dose": 10.84,
+          "aggr_certified_dose": 11.31,
+          "aggr_status": "REJECTED_CORRECTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 16,
+          "timestamp": "2026-08-02T16:45:00.000-04:00",
+          "turbidity_ntu": 14.7,
+          "ph": 8.9,
+          "temperature_c": 26.1,
+          "flow_cfs": 473.0,
+          "heur_candidate_dose": 10.68,
+          "heur_certified_dose": 11.23,
+          "heur_status": "REJECTED_CORRECTED",
+          "heur_upper_bound": 1.0,
+          "aggr_candidate_dose": 10.76,
+          "aggr_certified_dose": 11.23,
+          "aggr_status": "REJECTED_CORRECTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 17,
+          "timestamp": "2026-08-02T17:00:00.000-04:00",
+          "turbidity_ntu": 14.5,
+          "ph": 8.9,
+          "temperature_c": 26.1,
+          "flow_cfs": 473.0,
+          "heur_candidate_dose": 10.6,
+          "heur_certified_dose": 11.13,
+          "heur_status": "REJECTED_CORRECTED",
+          "heur_upper_bound": 1.0,
+          "aggr_candidate_dose": 10.69,
+          "aggr_certified_dose": 11.13,
+          "aggr_status": "REJECTED_CORRECTED",
+          "primary_driver": "turbidity"
+        }
+      ]
+    },
+    "01184000": {
+      "site_id": "01184000",
+      "site_name": "Connecticut River at Thompsonville CT",
+      "total_records_evaluated": 2865,
+      "nominal_flow_cfs": 5090.0,
+      "compliance_limit_ntu": 1.0,
+      "summary_statistics": {
+        "turbidity_ntu": {
+          "min": 0.3,
+          "median": 0.7,
+          "mean": 1.0348342059336824,
+          "max": 13.6
+        },
+        "flow_cfs": {
+          "min": 2460.0,
+          "median": 5090.0,
+          "mean": 6160.987783595114,
+          "max": 18100.0
+        },
+        "ph": {
+          "min": 6.6,
+          "median": 7.1,
+          "mean": 7.251867364746945,
+          "max": 9.2
+        },
+        "temperature_c": {
+          "min": 22.9,
+          "median": 25.1,
+          "mean": 25.280767888307153,
+          "max": 27.8
+        }
+      },
+      "heuristic_controller": {
+        "accepted_count": 2865,
+        "accepted_pct": 100.0,
+        "corrected_count": 0,
+        "corrected_pct": 0.0,
+        "fallback_count": 0,
+        "fallback_pct": 0.0,
+        "unverified_violations": 0,
+        "certified_violations": 0,
+        "mean_candidate_dose_mg_l": 2.73,
+        "mean_applied_dose_mg_l": 2.73,
+        "chemical_overhead_pct": 0.0,
+        "latency_ms": {
+          "mean": 0.027,
+          "median": 0.0258,
+          "p95": 0.0379,
+          "p99": 0.0471,
+          "max": 0.1862
+        }
+      },
+      "aggressive_controller": {
+        "accepted_count": 2865,
+        "accepted_pct": 100.0,
+        "corrected_count": 0,
+        "corrected_pct": 0.0,
+        "fallback_count": 0,
+        "fallback_pct": 0.0,
+        "unverified_violations": 0,
+        "certified_violations": 0,
+        "mean_candidate_dose_mg_l": 2.92,
+        "mean_applied_dose_mg_l": 2.92,
+        "latency_ms": {
+          "mean": 0.027,
+          "median": 0.0258,
+          "p95": 0.0382,
+          "p99": 0.0492,
+          "max": 0.1723
+        }
+      },
+      "soundness_checks": {
+        "model_soundness_breaches": 0,
+        "guarantee_held": true
+      },
+      "uncertainty_attribution_drivers": {
+        "turbidity": 2865
+      },
+      "flagged_stress_events_count": 122,
+      "flagged_stress_events_sample": [
+        {
+          "index": 2191,
+          "timestamp": "2026-08-25T11:15:00.000-04:00",
+          "turbidity_ntu": 0.4,
+          "ph": 8.8,
+          "temperature_c": 25.1,
+          "flow_cfs": 2900.0,
+          "heur_candidate_dose": 2.46,
+          "heur_certified_dose": 2.46,
+          "heur_status": "ACCEPTED",
+          "heur_upper_bound": 0.44,
+          "aggr_candidate_dose": 2.66,
+          "aggr_certified_dose": 2.66,
+          "aggr_status": "ACCEPTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 2192,
+          "timestamp": "2026-08-25T11:30:00.000-04:00",
+          "turbidity_ntu": 0.5,
+          "ph": 8.8,
+          "temperature_c": 25.3,
+          "flow_cfs": 2940.0,
+          "heur_candidate_dose": 2.46,
+          "heur_certified_dose": 2.46,
+          "heur_status": "ACCEPTED",
+          "heur_upper_bound": 0.478,
+          "aggr_candidate_dose": 2.66,
+          "aggr_certified_dose": 2.66,
+          "aggr_status": "ACCEPTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 2193,
+          "timestamp": "2026-08-25T11:45:00.000-04:00",
+          "turbidity_ntu": 0.5,
+          "ph": 8.8,
+          "temperature_c": 25.4,
+          "flow_cfs": 3010.0,
+          "heur_candidate_dose": 2.45,
+          "heur_certified_dose": 2.45,
+          "heur_status": "ACCEPTED",
+          "heur_upper_bound": 0.478,
+          "aggr_candidate_dose": 2.66,
+          "aggr_certified_dose": 2.66,
+          "aggr_status": "ACCEPTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 2194,
+          "timestamp": "2026-08-25T12:00:00.000-04:00",
+          "turbidity_ntu": 0.4,
+          "ph": 8.9,
+          "temperature_c": 25.5,
+          "flow_cfs": 3040.0,
+          "heur_candidate_dose": 2.45,
+          "heur_certified_dose": 2.45,
+          "heur_status": "ACCEPTED",
+          "heur_upper_bound": 0.448,
+          "aggr_candidate_dose": 2.66,
+          "aggr_certified_dose": 2.66,
+          "aggr_status": "ACCEPTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 2195,
+          "timestamp": "2026-08-25T12:15:00.000-04:00",
+          "turbidity_ntu": 0.5,
+          "ph": 8.9,
+          "temperature_c": 25.5,
+          "flow_cfs": 3080.0,
+          "heur_candidate_dose": 2.45,
+          "heur_certified_dose": 2.45,
+          "heur_status": "ACCEPTED",
+          "heur_upper_bound": 0.488,
+          "aggr_candidate_dose": 2.66,
+          "aggr_certified_dose": 2.66,
+          "aggr_status": "ACCEPTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 2196,
+          "timestamp": "2026-08-25T12:30:00.000-04:00",
+          "turbidity_ntu": 0.5,
+          "ph": 8.9,
+          "temperature_c": 25.6,
+          "flow_cfs": 3110.0,
+          "heur_candidate_dose": 2.45,
+          "heur_certified_dose": 2.45,
+          "heur_status": "ACCEPTED",
+          "heur_upper_bound": 0.488,
+          "aggr_candidate_dose": 2.66,
+          "aggr_certified_dose": 2.66,
+          "aggr_status": "ACCEPTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 2197,
+          "timestamp": "2026-08-25T12:45:00.000-04:00",
+          "turbidity_ntu": 0.4,
+          "ph": 8.9,
+          "temperature_c": 25.6,
+          "flow_cfs": 3150.0,
+          "heur_candidate_dose": 2.45,
+          "heur_certified_dose": 2.45,
+          "heur_status": "ACCEPTED",
+          "heur_upper_bound": 0.448,
+          "aggr_candidate_dose": 2.66,
+          "aggr_certified_dose": 2.66,
+          "aggr_status": "ACCEPTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 2198,
+          "timestamp": "2026-08-25T13:00:00.000-04:00",
+          "turbidity_ntu": 0.4,
+          "ph": 8.9,
+          "temperature_c": 25.6,
+          "flow_cfs": 3180.0,
+          "heur_candidate_dose": 2.45,
+          "heur_certified_dose": 2.45,
+          "heur_status": "ACCEPTED",
+          "heur_upper_bound": 0.448,
+          "aggr_candidate_dose": 2.66,
+          "aggr_certified_dose": 2.66,
+          "aggr_status": "ACCEPTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 2199,
+          "timestamp": "2026-08-25T13:15:00.000-04:00",
+          "turbidity_ntu": 0.4,
+          "ph": 8.9,
+          "temperature_c": 25.6,
+          "flow_cfs": 3290.0,
+          "heur_candidate_dose": 2.45,
+          "heur_certified_dose": 2.45,
+          "heur_status": "ACCEPTED",
+          "heur_upper_bound": 0.448,
+          "aggr_candidate_dose": 2.66,
+          "aggr_certified_dose": 2.66,
+          "aggr_status": "ACCEPTED",
+          "primary_driver": "turbidity"
+        },
+        {
+          "index": 2200,
+          "timestamp": "2026-08-25T13:30:00.000-04:00",
+          "turbidity_ntu": 0.5,
+          "ph": 8.8,
+          "temperature_c": 25.4,
+          "flow_cfs": 3370.0,
+          "heur_candidate_dose": 2.45,
+          "heur_certified_dose": 2.45,
+          "heur_status": "ACCEPTED",
+          "heur_upper_bound": 0.478,
+          "aggr_candidate_dose": 2.66,
+          "aggr_certified_dose": 2.66,
+          "aggr_status": "ACCEPTED",
+          "primary_driver": "turbidity"
+        }
+      ]
+    }
+  }
+}
