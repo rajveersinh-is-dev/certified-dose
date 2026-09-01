@@ -28,3 +28,12 @@ def test_conservatism_benchmark_smoke(tmp_path: Path) -> None:
     img_path = tmp_path / "test_benchmark.png"
     plot_benchmark_figures(results, summary, img_path)
     assert img_path.exists()
+
+
+def test_latency_benchmark_smoke() -> None:
+    from benchmarks.latency_benchmark import run_latency_benchmark
+
+    results = run_latency_benchmark(trials_single=50, trials_bisection=10)
+    assert "single_check_latency_us" in results
+    assert "bisection_fallback_latency_ms" in results
+    assert results["single_check_latency_us"]["mean_us"] > 0.0

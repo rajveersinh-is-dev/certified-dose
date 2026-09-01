@@ -1,0 +1,122 @@
+{
+  "timestamp": "2026-09-01 13:12:16Z",
+  "single_check_latency_us": {
+    "trials": 50.0,
+    "mean_us": 117.70200000000001,
+    "std_us": 37.27543153338403,
+    "min_us": 99.5,
+    "median_us": 102.45,
+    "p90_us": 156.02000000000004,
+    "p95_us": 212.71499999999995,
+    "p99_us": 250.22599999999994,
+    "p99_9_us": 269.01260000000036,
+    "max_us": 271.1
+  },
+  "bisection_fallback_latency_ms": {
+    "width_5pct_iter_10": {
+      "uncertainty_pct": 5,
+      "max_iter": 10,
+      "trials": 10,
+      "mean_ms": 1.0924799949862063,
+      "median_ms": 1.0813999688252807,
+      "p95_ms": 1.1288050009170547,
+      "p99_ms": 1.1356809904100373,
+      "max_ms": 1.137399987783283,
+      "corrected_dose": 15.0
+    },
+    "width_5pct_iter_25": {
+      "uncertainty_pct": 5,
+      "max_iter": 25,
+      "trials": 10,
+      "mean_ms": 2.4887299980036914,
+      "median_ms": 2.489700011210516,
+      "p95_ms": 2.577469978132285,
+      "p99_ms": 2.580853982944973,
+      "max_ms": 2.5816999841481447,
+      "corrected_dose": 12.274693080357142
+    },
+    "width_5pct_iter_50": {
+      "uncertainty_pct": 5,
+      "max_iter": 50,
+      "trials": 10,
+      "mean_ms": 5.025109997950494,
+      "median_ms": 5.03900001058355,
+      "p95_ms": 5.0758699886500835,
+      "p99_ms": 5.087173990905285,
+      "max_ms": 5.089999991469085,
+      "corrected_dose": 12.27463730504886
+    },
+    "width_15pct_iter_10": {
+      "uncertainty_pct": 15,
+      "max_iter": 10,
+      "trials": 10,
+      "mean_ms": 1.1664099933113903,
+      "median_ms": 1.1151499929837883,
+      "p95_ms": 1.3949849875643847,
+      "p99_ms": 1.4888369897380471,
+      "max_ms": 1.5122999902814627,
+      "corrected_dose": 15.0
+    },
+    "width_15pct_iter_25": {
+      "uncertainty_pct": 15,
+      "max_iter": 25,
+      "trials": 10,
+      "mean_ms": 2.766930003417656,
+      "median_ms": 2.5924999790731817,
+      "p95_ms": 3.561845028889364,
+      "p99_ms": 4.000289035611786,
+      "max_ms": 4.109900037292391,
+      "corrected_dose": 13.178013392857142
+    },
+    "width_15pct_iter_50": {
+      "uncertainty_pct": 15,
+      "max_iter": 50,
+      "trials": 10,
+      "mean_ms": 5.096690001664683,
+      "median_ms": 5.072100029792637,
+      "p95_ms": 5.253524979343638,
+      "p99_ms": 5.340464970795438,
+      "max_ms": 5.362199968658388,
+      "corrected_dose": 13.176541359384178
+    },
+    "width_30pct_iter_10": {
+      "uncertainty_pct": 30,
+      "max_iter": 10,
+      "trials": 10,
+      "mean_ms": 1.1034600087441504,
+      "median_ms": 1.1003999970853329,
+      "p95_ms": 1.1259150429395959,
+      "p99_ms": 1.1278230365132913,
+      "max_ms": 1.1283000349067152,
+      "corrected_dose": 15.0
+    },
+    "width_30pct_iter_25": {
+      "uncertainty_pct": 30,
+      "max_iter": 25,
+      "trials": 10,
+      "mean_ms": 2.5903199973981827,
+      "median_ms": 2.5603999965824187,
+      "p95_ms": 2.7142600010847673,
+      "p99_ms": 2.74205198220443,
+      "max_ms": 2.7489999774843454,
+      "corrected_dose": 14.618443080357142
+    },
+    "width_30pct_iter_50": {
+      "uncertainty_pct": 30,
+      "max_iter": 50,
+      "trials": 10,
+      "mean_ms": 4.91267999750562,
+      "median_ms": 4.903449997073039,
+      "p95_ms": 5.121705032070167,
+      "p99_ms": 5.172501020715572,
+      "max_ms": 5.185200017876923,
+      "corrected_dose": 14.617996403352922
+    }
+  },
+  "timing_guarantees": {
+    "single_check_wcet_us": 271.1,
+    "single_check_p99_us": 250.22599999999994,
+    "bisection_fallback_hard_cap_ms": 50.0,
+    "control_loop_feasibility": "Suitable for 10Hz - 1000Hz industrial PLCs/DCS"
+  }
+}

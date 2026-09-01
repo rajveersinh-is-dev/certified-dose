@@ -134,3 +134,38 @@ def test_wrapped_controller_protocol() -> None:
     assert isinstance(dose, float)
     assert dose > 0.0
     assert cert_res.reachable_set.hi <= 1.0
+
+
+def test_certifier_bisection_timeout_and_iteration_caps(
+    default_disturbances: dict[str, Interval],
+) -> None:
+    """Verifies that exceeding time budget or zero iteration limit forces fail-safe fallback."""
+    # 1. Invalid arguments
+    with pytest.raises(ValueError, match="Max computation time must be positive"):
+        _ = CertifiedDoseWrapper(max_computation_time_ms=-1.0)
+
+    with pytest.raises(ValueError, match="bisection_max_iter cannot be negative"):
+        _ = CertifiedDoseWrapper(bisection_max_iter=-5)
+
+    # 2. Hard timeout cap (e.g. 0.0001 ms budget forces immediate timeout during search)
+    wrapper_timeout = CertifiedDoseWrapper(
+        fallback_dose=24.0,
+        compliance_limit=1.0,
+        max_computation_time_ms=0.000001,  # Sub-nanosecond budget
+    )
+    # Propose unsafe dose (2.0 mg/L) requiring bisection search
+    res_timeout = wrapper_timeout.certify_action(2.0, default_disturbances)
+    assert res_timeout.status == CertificationStatus.FAILED_SAFE_FALLBACK
+    assert res_timeout.certified_dose == 24.0
+    assert "budget exceeded" in res_timeout.reason
+
+    # 3. Zero iteration cap
+    wrapper_zero_iter = CertifiedDoseWrapper(
+        fallback_dose=24.0,
+        compliance_limit=1.0,
+        bisection_max_iter=0,
+    )
+    res_zero = wrapper_zero_iter.certify_action(2.0, default_disturbances)
+    assert res_zero.status == CertificationStatus.FAILED_SAFE_FALLBACK
+    assert res_zero.certified_dose == 24.0
+    assert "iteration cap is zero" in res_zero.reason
