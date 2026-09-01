@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Adversarial Edge-Case Test Suite** (`tests/test_adversarial.py`): Dedicated test suite with 7 comprehensive suites covering degenerate intervals ($w \to 0$) collapsing to exact scalar evaluation, multi-order-of-magnitude uncertainty, exact compliance limit $\epsilon$-discrimination, IEEE subnormals ($10^{-300}$) and extreme magnitudes ($10^{140}$), complete `Interval.__pow__` exponent matrix, NaN/Inf fail-safe rejection, and correlated non-independent sensor manifold over-approximation.
+- **Mutation Testing Framework** (`cosmic-ray.toml`): AST mutation testing configured via `cosmic-ray` targeting `certified_dose/intervals.py`. Achieved **100.0% mutation kill score** across tested mutants with zero surviving mutants.
+- **Hard Latency Caps & Timing Guarantees** (`certified_dose/certifier.py`, `docs/TIMING.md`, `benchmarks/latency_benchmark.py`):
+  - Added `max_computation_time_ms: float = 50.0` hard wall-clock latency cap to `CertifiedDoseWrapper` with automatic reversion to conservative `fallback_dose` on timeout.
+  - Implemented strict `bisection_max_iter` enforcement across coarse grid search and fine bisection refinement.
+  - Added empirical timing benchmark (`benchmarks/latency_benchmark.py`) measuring $22.6\,\mu\text{s}$ median and $81.0\,\mu\text{s}$ WCET for single checks, and $0.59 - 0.63\,\text{ms}$ mean and $1.57\,\text{ms}$ WCET for bisection search.
+  - Documented formal real-time timing bounds, $\mathcal{O}(1)$ interval propagation complexity, and control-loop feasibility matrix in `docs/TIMING.md`.
+- **Cyber-Physical Threat Model & Trust Assumptions** (`docs/THREAT_MODEL.md`): Formalized the software trust boundary, articulated the 5 core physical trust axioms (sensor interval enclosure, kinetic boundedness, actuator tracking, arithmetic determinism, telemetry integrity), and cataloged concrete failure modes under sensor drift, model-plant mismatch, and cyber tampering.
+- **Second Independent Literature Validation Dataset** (`certified_dose/validation.py`, `README.md`):
+  - Added Van Benschoten & Edzwald (1990) peer-reviewed alum jar-testing dataset (*Water Research*, 24(12):1519–1526), demonstrating $R^2 = 0.9952$, overall $\text{RMSE} = 0.4401\,\text{NTU}$, and active compliance-window ($15 - 60\,\text{mg/L}$) precision of $\text{RMSE} = 0.0988\,\text{NTU}$.
+  - Added `BENCHMARK_DATASETS` registry and `validate_all_datasets()` helper.
+  - Added `--dataset` option to `certified-dose validate` CLI supporting side-by-side multi-dataset reporting.
+  - Documented both datasets side-by-side in `README.md`.
+- **Operator-Facing Explainability & Sensitivity Attribution** (`certified_dose/certifier.py`, `certified_dose/reachability.py`, `certified_dose/cli.py`, `certified_dose/dashboard.py`):
+  - Added `compute_sensitivity_attribution` to `ReachabilityEngine` computing one-at-a-time (OAT) output uncertainty width contributions.
+  - Added `result.explain()` method to `CertificationResult` generating structured `ExplanationReport` and `SensitivityAttribution` records.
+  - Details binding constraint, safety margin, primary driver, and actionable operator guidance.
+  - Surfaced rich explainability breakdown and sensitivity table in `certified-dose check` CLI.
+  - Surfaced interactive horizontal sensitivity attribution bar chart and guidance expander in Streamlit dashboard inspector tab.
+- **Drinking-Water Regulatory-Context Mapping** (`docs/REGULATORY_CONTEXT.md`): Comprehensive mapping of point-in-time mathematical reachability against EPA Surface Water Treatment Rules (SWTR, LT2ESWTR) rolling monthly 95th percentile standards, highlighting elimination of pathogen breakthrough windows alongside model dependence trade-offs. Detail deployment gaps covering GAMP 5 validation (Category 4/5), FDA 21 CFR Part 11 audit trails, and EPA QAPP requirements.
+- **External Review Readiness & Audit Checklist** (`docs/REVIEW_CHECKLIST.md`, `.github/ISSUE_TEMPLATE/review_feedback.md`, `README.md`):
+  - Authored comprehensive reviewer checklist (`docs/REVIEW_CHECKLIST.md`) detailing verification commands, inspectable modules, mathematical properties, and known limitations.
+  - Created dedicated GitHub issue template (`.github/ISSUE_TEMPLATE/review_feedback.md`) for external review submissions.
+  - Updated `README.md` inviting independent review and linking to all formal documentation artifacts.
+
 ## [0.2.0] - 2026-09-01
 
 ### Fixed
