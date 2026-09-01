@@ -49,6 +49,7 @@ dev = [
     "mypy>=1.7.0",
     "ruff>=0.1.6",
     "black>=23.11.0",
+    "matplotlib>=3.8.0",
 ]
 
 [project.scripts]

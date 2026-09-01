@@ -1,0 +1,87 @@
+{
+  "sweep": [
+    {
+      "uncertainty_pct": 5.0,
+      "naive_violations": 25,
+      "certified_violations": 0,
+      "interventions": 25,
+      "intervention_rate_pct": 25.0,
+      "mean_naive_dose": 14.772565795218458,
+      "mean_certified_dose": 15.438560046195205,
+      "chemical_overhead_pct": 4.508318055298922,
+      "max_naive_effluent": 1.0640589822978233,
+      "max_certified_effluent": 0.9234549658559433,
+      "compliance_limit": 1.0
+    },
+    {
+      "uncertainty_pct": 10.0,
+      "naive_violations": 25,
+      "certified_violations": 0,
+      "interventions": 29,
+      "intervention_rate_pct": 28.999999999999996,
+      "mean_naive_dose": 14.772565795218458,
+      "mean_certified_dose": 15.725655868859171,
+      "chemical_overhead_pct": 6.451757175109053,
+      "max_naive_effluent": 1.0640589822978233,
+      "max_certified_effluent": 0.8849265715119843,
+      "compliance_limit": 1.0
+    },
+    {
+      "uncertainty_pct": 15.0,
+      "naive_violations": 25,
+      "certified_violations": 0,
+      "interventions": 93,
+      "intervention_rate_pct": 93.0,
+      "mean_naive_dose": 14.772565795218458,
+      "mean_certified_dose": 16.20981533968959,
+      "chemical_overhead_pct": 9.729180187075812,
+      "max_naive_effluent": 1.0640589822978233,
+      "max_certified_effluent": 0.8502586135314938,
+      "compliance_limit": 1.0
+    },
+    {
+      "uncertainty_pct": 20.0,
+      "naive_violations": 25,
+      "certified_violations": 0,
+      "interventions": 100,
+      "intervention_rate_pct": 100.0,
+      "mean_naive_dose": 14.772565795218458,
+      "mean_certified_dose": 16.9021484375,
+      "chemical_overhead_pct": 14.415793923699011,
+      "max_naive_effluent": 1.0640589822978233,
+      "max_certified_effluent": 0.8189936161636888,
+      "compliance_limit": 1.0
+    },
+    {
+      "uncertainty_pct": 25.0,
+      "naive_violations": 25,
+      "certified_violations": 0,
+      "interventions": 100,
+      "intervention_rate_pct": 100.0,
+      "mean_naive_dose": 14.772565795218458,
+      "mean_certified_dose": 17.663023158482137,
+      "chemical_overhead_pct": 19.566386796525578,
+      "max_naive_effluent": 1.0640589822978233,
+      "max_certified_effluent": 0.7911157310333167,
+      "compliance_limit": 1.0
+    },
+    {
+      "uncertainty_pct": 30.0,
+      "naive_violations": 25,
+      "certified_violations": 0,
+      "interventions": 100,
+      "intervention_rate_pct": 100.0,
+      "mean_naive_dose": 14.772565795218458,
+      "mean_certified_dose": 18.532101004464284,
+      "chemical_overhead_pct": 25.4494395987913,
+      "max_naive_effluent": 1.0640589822978233,
+      "max_certified_effluent": 0.7672363446210784,
+      "compliance_limit": 1.0
+    }
+  ],
+  "metadata": {
+    "steps": 100,
+    "seed": 42,
+    "compliance_limit": 1.0
+  }
+}
