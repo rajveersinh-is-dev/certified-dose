@@ -32,8 +32,12 @@ from certified_dose.simulate import (
     simulate_closed_loop,
 )
 from certified_dose.validation import (
+    BENCHMARK_DATASETS,
+    DATASET_EDWARDS_1997,
+    DATASET_VAN_BENSCHOTEN_1990,
     EmpiricalDataset,
     ModelValidationReport,
+    validate_all_datasets,
     validate_synthetic_model,
 )
 
@@ -63,6 +67,10 @@ __all__ = [
     "ClosedLoopSimulator",
     "simulate_closed_loop",
     "EmpiricalDataset",
+    "DATASET_EDWARDS_1997",
+    "DATASET_VAN_BENSCHOTEN_1990",
+    "BENCHMARK_DATASETS",
     "ModelValidationReport",
     "validate_synthetic_model",
+    "validate_all_datasets",
 ]

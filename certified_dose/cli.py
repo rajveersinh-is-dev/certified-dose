@@ -257,44 +257,73 @@ def dashboard_cmd(
 
 
 @app.command(name="validate")
-def validate_cmd() -> None:
-    """Validate process model against published empirical jar-testing data."""
-    from certified_dose.validation import validate_synthetic_model
-
-    report = validate_synthetic_model()
-
-    console.print(
-        Panel.fit(
-            f"[bold cyan]Model Empirical Validation Report[/bold cyan]\n"
-            f"[dim]Reference Dataset: {report.citation}[/dim]\n\n"
-            f"[bold]Goodness-of-Fit Metrics:[/bold]\n"
-            f"  • R² Score: [bold green]{report.r2_score:.4f}[/bold green]\n"
-            f"  • Overall RMSE: [bold green]{report.rmse_ntu:.4f} NTU[/bold green]\n"
-            f"  • Mean Absolute Error (MAE): [bold green]{report.mae_ntu:.4f} NTU[/bold green]\n"
-            f"  • Compliance Window RMSE (15-60 mg/L): [bold green]{report.compliance_zone_rmse_ntu:.4f} NTU[/bold green]\n"
-            f"  • Max Residual: [yellow]{report.max_absolute_error_ntu:.4f} NTU[/yellow]\n\n"
-            f"[bold]Divergence Analysis:[/bold]\n{report.divergence_summary}",
-            title="[bold green]Literature Validation[/bold green]",
-        )
+def validate_cmd(
+    dataset: str = typer.Option(
+        "all",
+        "--dataset",
+        "-d",
+        help="Benchmark literature dataset ('all', 'edwards_1997', 'van_benschoten_1990').",
+    ),
+) -> None:
+    """Validate process model against published empirical jar-testing literature."""
+    from certified_dose.validation import (
+        BENCHMARK_DATASETS,
+        ModelValidationReport,
+        validate_all_datasets,
+        validate_synthetic_model,
     )
 
-    table = Table(title="Point-by-Point Literature Comparison")
-    table.add_column("Dose (mg/L)", justify="right", style="cyan")
-    table.add_column("Measured (NTU)", justify="right")
-    table.add_column("Predicted (NTU)", justify="right", style="bold green")
-    table.add_column("Residual (NTU)", justify="right")
-    table.add_column("Rel Error (%)", justify="right")
+    reports: list[ModelValidationReport] = []
+    if dataset.lower() == "all":
+        all_reps = validate_all_datasets()
+        reports = list(all_reps.values())
+    elif dataset.lower() in BENCHMARK_DATASETS:
+        reports = [
+            validate_synthetic_model(dataset=BENCHMARK_DATASETS[dataset.lower()])
+        ]
+    else:
+        valid_keys = ", ".join(BENCHMARK_DATASETS.keys())
+        console.print(
+            f"[bold red]Unknown dataset:[/bold red] {dataset}. Available datasets: all, {valid_keys}"
+        )
+        raise typer.Exit(code=1)
 
-    for c in report.comparisons:
-        table.add_row(
-            f"{c.dose:.1f}",
-            f"{c.measured_ntu:.2f}",
-            f"{c.predicted_ntu:.2f}",
-            f"{c.residual_ntu:+.3f}",
-            f"{c.relative_error_pct:.1f}%",
+    for report in reports:
+        console.print(
+            Panel.fit(
+                f"[bold cyan]Model Empirical Validation Report[/bold cyan]\n"
+                f"[dim]Reference Dataset: {report.citation}[/dim]\n\n"
+                f"[bold]Goodness-of-Fit Metrics:[/bold]\n"
+                f"  • R² Score: [bold green]{report.r2_score:.4f}[/bold green]\n"
+                f"  • Overall RMSE: [bold green]{report.rmse_ntu:.4f} NTU[/bold green]\n"
+                f"  • Mean Absolute Error (MAE): [bold green]{report.mae_ntu:.4f} NTU[/bold green]\n"
+                f"  • Compliance Window RMSE (15-60 mg/L): [bold green]{report.compliance_zone_rmse_ntu:.4f} NTU[/bold green]\n"
+                f"  • Max Residual: [yellow]{report.max_absolute_error_ntu:.4f} NTU[/yellow]\n\n"
+                f"[bold]Divergence Analysis:[/bold]\n{report.divergence_summary}",
+                title="[bold green]Literature Validation[/bold green]",
+            )
         )
 
-    console.print(table)
+        table = Table(
+            title=f"Point-by-Point Literature Comparison: {report.citation.split(',')[0]}"
+        )
+        table.add_column("Dose (mg/L)", justify="right", style="cyan")
+        table.add_column("Measured (NTU)", justify="right")
+        table.add_column("Predicted (NTU)", justify="right", style="bold green")
+        table.add_column("Residual (NTU)", justify="right")
+        table.add_column("Rel Error (%)", justify="right")
+
+        for c in report.comparisons:
+            table.add_row(
+                f"{c.dose:.1f}",
+                f"{c.measured_ntu:.2f}",
+                f"{c.predicted_ntu:.2f}",
+                f"{c.residual_ntu:+.3f}",
+                f"{c.relative_error_pct:.1f}%",
+            )
+
+        console.print(table)
+        console.print()
 
 
 @app.command(name="version")
