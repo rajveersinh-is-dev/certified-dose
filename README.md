@@ -22,7 +22,9 @@ However, standard ML models provide **no worst-case guarantees**. Under unexpect
 
 `certified-dose` acts as a formal verification guardrail between any candidate controller and the physical dosing actuators. Given (1) a proposed candidate dose and (2) bounded intervals representing sensor noise and disturbance uncertainty (e.g. influent turbidity $T_{in} \pm 15\%$, flow rate $Q \pm 10\%$, pH, temperature), the certifier propagates these input intervals through a non-linear process model using **rigorous interval arithmetic**.
 
-The computation determines the **guaranteed reachable set** $[y_{\min}, y_{\max}]$ of effluent contaminant concentrations. If the supremum of the reachable set satisfies the regulatory limit ($y_{\max} \le L_{limit}$), the candidate action is certified and dispatched. If the reachable set violates the envelope, the certifier rejects the action and falls back to a certified safe dose computed via bisection search or a conservative fail-safe default.
+The computation determines the **guaranteed reachable set** $[y_{\min}, y_{\max}]$ of effluent contaminant concentrations. If the supremum of the reachable set satisfies the regulatory limit ($y_{\max} \le L_{\text{limit}}$), the candidate action is certified and dispatched. If the reachable set violates the envelope, the certifier rejects the action and falls back to a certified safe dose computed via bisection search or a conservative fail-safe default.
+
+For the complete mathematical inclusion monotonicity proof and dependency analysis, see **[Formal Soundness Proof](docs/SOUNDNESS.md)**. For high-level control methodology, see **[Methodology Guide](docs/methodology.md)**.
 
 ---
 
@@ -130,6 +132,9 @@ certified-dose simulate --steps 100 --seed 42 --limit 1.0
 # Perform a one-shot reachability check for a candidate dose
 certified-dose check --dose 16.0 --turbidity 25.0 --flow 1000.0 --limit 1.0
 
+# Validate steady-state kinetics against published empirical jar-test data
+certified-dose validate
+
 # Launch the interactive visual dashboard
 certified-dose dashboard --port 8501
 ```
@@ -151,6 +156,16 @@ certified-dose dashboard
 ```
 
 *(Streamlit runs locally at `http://localhost:8501`)*
+
+### One-Click Deployment to Streamlit Community Cloud
+
+The repository is fully configured for zero-setup hosted deployment:
+
+1. Push or fork this repository to your GitHub account.
+2. Sign in to [share.streamlit.io](https://share.streamlit.io/) with your GitHub account.
+3. Click **"New app"**, select `certified-dose` repository, branch `main`, and specify:
+   - **Main file path**: `certified_dose/dashboard.py`
+4. Click **"Deploy"**. The bundled `.streamlit/config.toml` automatically configures production server parameters, themes, and dependencies.
 
 ---
 
