@@ -50,6 +50,8 @@ dev = [
     "ruff>=0.1.6",
     "black>=23.11.0",
     "matplotlib>=3.8.0",
+    "cosmic-ray>=8.7.0",
+    "mutmut>=3.7.0",
 ]
 
 [project.scripts]
