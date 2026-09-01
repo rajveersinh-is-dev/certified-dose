@@ -1,0 +1,12 @@
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: certified-dose:latest
+    container_name: certified-dose-dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
