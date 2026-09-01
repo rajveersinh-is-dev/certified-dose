@@ -209,6 +209,9 @@ The formal certifier enforces an unconditional fail-safe invariant:
 [Sanity & Physical Range Check] ──── Invalid / NaN / Inf ───┐
        │                                                    │
        ▼                                                    │
+[pH Validity Regime Check] ───────── pH < 5.0 or > 8.5 ─────┤ (OUTSIDE_MODEL_VALIDITY)
+       │                                                    │
+       ▼                                                    │
 [Reachability Engine Evaluation] ─── Computational Error ───┤
        │                                                    │
        ▼                                                    │
@@ -225,9 +228,41 @@ The formal certifier enforces an unconditional fail-safe invariant:
 If **any** computational anomaly occurs:
 1. `math.isnan(d)` or `math.isinf(d)` or $d < 0$
 2. Numerical domain error (e.g., negative physical interval)
-3. Unhandled runtime exception or timeout
-4. Search unable to find any operating point where $\overline{\mathcal{R}}(d) \le L_{\text{compliance}}$
+3. Disturbance uncertainty straddling out-of-validity regime ($\text{pH} < 5.0$ or $\text{pH} > 8.5$)
+4. Unhandled runtime exception or timeout
+5. Search unable to find any operating point where $\overline{\mathcal{R}}(d) \le L_{\text{compliance}}$
 
 The system logs a critical diagnostic warning and unconditionally reverts to the pre-verified safe default action $d_{\text{fallback}}$.
 
 **Soundness Guarantee:** An unverified or non-compliant dosing action is mathematically prevented from ever reaching the physical process actuator.
+
+---
+
+## 8. Operational Validity Scope & Chemical Regimes (v0.4.0)
+
+A fundamental distinction must be maintained between **mathematical inclusion soundness** and **physical model validity**:
+
+1. **Mathematical Inclusion Soundness:** The interval arithmetic theorems proven in Sections 1–4 hold universally for the mathematical function $f(d, \theta)$. For any input box $\Theta$, $\overline{\mathcal{R}}(d) \ge \sup_{\theta \in \Theta} f(d, \theta)$ with zero exception.
+2. **Physical Process Validity:** The mathematical function $f(d, \theta)$ is an empirical surrogate representing single-chemical alum ($\text{Al}_2(\text{SO}_4)_3$) coagulation. Its physical faithfulness is strictly bounded to the aquatic chemistry regime where solid amorphous aluminum hydroxide ($\text{Al(OH)}_3\text{(s)}$) precipitates:
+
+$$\text{pH}_{\text{valid}} \in [5.0, \; 8.0]$$
+
+### 8.1 Chemical Mechanism at Regime Boundaries
+
+- **Acidic Regime ($\text{pH} < 5.0$):** Aluminum remains primarily as trivalent hydrated cations $\text{Al}^{3+}$ and $\text{AlOH}^{2+}$. Insoluble floc does not form efficiently, and high doses do not settle.
+- **Aluminate Regime ($\text{pH} > 8.5$):** The solubility of aluminum amphoterically increases due to hydroxide coordination, converting insoluble $\text{Al(OH)}_3\text{(s)}$ into soluble aluminate anions $\text{Al(OH)}_4^-$:
+
+$$\text{Al(OH)}_3\text{(s)} + \text{OH}^- \rightleftharpoons \text{Al(OH)}_4^-$$
+
+In this alkaline regime, the process model's quadratic penalty $\phi_{\text{pH}} = 1.0 + 0.20(\text{pH} - 7.2)^2$ is **qualitatively backwards**: it interprets rising pH as increasing coagulant demand, whereas adding more alum at $\text{pH} > 8.5$ causes severe dissolved aluminum breakthrough in finished water rather than particulate removal.
+
+### 8.2 Out-of-Validity Certification Refusal
+
+In v0.4.0, when the bounded input uncertainty interval $[\underline{\text{pH}}, \overline{\text{pH}}]$ enters the aluminate-dominant regime ($\overline{\text{pH}} > 8.5$) or acidic regime ($\underline{\text{pH}} < 5.0$), the engine refuses certification:
+
+- `result.status = CertificationStatus.OUTSIDE_MODEL_VALIDITY`
+- `result.process_model_valid = False`
+- `result.model_validity_reason` cites the alum chemical boundary and explains that single-chemical dosing cannot be certified.
+
+This behavior is distinct from `FAILED_SAFE_FALLBACK` (computational error) and `REJECTED_CORRECTED` (dose problem). The reachability engine explicitly refuses to issue a false or misleading safety certificate when the underlying process model's chemical assumptions are violated.
+

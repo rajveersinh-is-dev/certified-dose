@@ -67,11 +67,11 @@ def test_extremely_wide_uncertainty_bounds_monotonic_and_sound() -> None:
     engine = ReachabilityEngine()
     wrapper = CertifiedDoseWrapper(engine=engine, compliance_limit=1.0)
 
-    # Extreme physical domain bounds
+    # Extreme physical domain bounds within valid pH regime
     extreme_state = {
         "turbidity": Interval(0.01, 1000.0),
         "flow_rate": Interval(10.0, 10000.0),
-        "ph": Interval(4.0, 10.0),
+        "ph": Interval(6.0, 7.8),
         "temperature": Interval(1.0, 40.0),
     }
 
@@ -91,6 +91,13 @@ def test_extremely_wide_uncertainty_bounds_monotonic_and_sound() -> None:
     assert not math.isnan(r.lo)
     assert not math.isnan(r.hi)
     assert not math.isinf(r.hi)
+
+    # Extreme pH interval spanning out-of-range boundaries must trigger OUTSIDE_MODEL_VALIDITY
+    extreme_ph_state = dict(extreme_state)
+    extreme_ph_state["ph"] = Interval(4.0, 10.0)
+    result_extreme_ph = wrapper.certify_action(2.0, extreme_ph_state)
+    assert result_extreme_ph.status == CertificationStatus.OUTSIDE_MODEL_VALIDITY
+    assert result_extreme_ph.process_model_valid is False
 
 
 # =============================================================================

@@ -57,7 +57,7 @@ Both datasets were run through [`benchmarks/real_world_benchmark.py`](../benchma
 - **Baseline Heuristic Controller**: Standard empirical jar-testing rule $d = k \cdot T_{\text{in}}^{0.55} \cdot Q_{\text{rel}}^{0.2} \cdot \phi_T$.
 - **Aggressive Cost Minimizer**: AI/RL-style chemical shaving controller reducing dose by 30% to minimize OPEX.
 
-### Summary Metrics
+### Summary Metrics (Updated v0.4.0)
 
 ```
 ========================================================================================
@@ -67,68 +67,68 @@ Total Records Evaluated            2,862 timesteps              2,865 timesteps
 Mathematical Soundness Breaches    0 (100% enclosed)            0 (100% enclosed)
 
 HEURISTIC CONTROLLER:
-  Accepted as Proposed             2,230 (77.92%)               2,865 (100.00%)
-  Rejected & Corrected Safe        632   (22.08%)               0     (0.00%)
+  Accepted as Proposed             2,003 (69.99%)               2,616 (91.31%)
+  Rejected & Corrected Safe        5     (0.17%)                0     (0.00%)
+  Outside Model Validity (Refused) 854   (29.84%)               249   (8.69%)
   Failed-Safe Fallback             0     (0.00%)                0     (0.00%)
-  Unverified Violations            103   (3.60%)                0     (0.00%)
+  Unverified Violations            0     (0.00%)                0     (0.00%)
   Certified Violations             0     (0.00%)                0     (0.00%)
-  Chemical Overhead                +1.42% (18.10 -> 18.35 mg/L) 0.00% (nominal)
+  Chemical Overhead                +2.90% (18.10 -> 18.62 mg/L) +39.97% (2.73 -> 3.82 mg/L)
 
 AGGRESSIVE CONTROLLER:
-  Accepted as Proposed             2,045 (71.45%)               2,865 (100.00%)
-  Rejected & Corrected Safe        817   (28.55%)               0     (0.00%)
+  Accepted as Proposed             2,003 (69.99%)               2,616 (91.31%)
+  Rejected & Corrected Safe        5     (0.17%)                0     (0.00%)
+  Outside Model Validity (Refused) 854   (29.84%)               249   (8.69%)
   Failed-Safe Fallback             0     (0.00%)                0     (0.00%)
-  Unverified Violations            73    (2.55%)                0     (0.00%)
+  Unverified Violations            0     (0.00%)                0     (0.00%)
   Certified Violations             0     (0.00%)                0     (0.00%)
 
 COMPUTATION LATENCY:
-  Median Execution Time            0.028 ms (28 microseconds)   0.027 ms
-  95th Percentile                  0.684 ms                     0.035 ms
-  99th Percentile                  1.095 ms                     0.040 ms
-  Worst-Case Execution Time        1.677 ms                     0.412 ms
+  Median Execution Time            0.027 ms (27 microseconds)   0.027 ms
+  95th Percentile                  0.054 ms                     0.045 ms
+  99th Percentile                  0.097 ms                     0.061 ms
+  Worst-Case Execution Time        0.967 ms                     0.202 ms
 ========================================================================================
 ```
 
 ### Headline Result: What Did the Real-World Data Reveal?
 
 1. **Zero Violations Guaranteed Under Real Operational Sensor Feeds**:
-   On the Maumee River, the unverified heuristic controller committed **103 statutory violations** ($>1.0\text{ NTU}$) during sudden turbidity surges. The aggressive controller committed **73 violations**. Wrapping these controllers with `certified-dose` **eliminated 100% of regulatory violations** (0 violations in both cases), confirming that interval reachability prevents non-compliance on messy real-world data.
-2. **Minimal Chemical Penalty**:
-   Eliminating all 103 violations required only a **+1.42% net chemical increase** on average across the 30-day operating window. The safety layer selectively injected chemical only when reachability bounds proved that candidate doses risked compliance.
-3. **No Spurious Interventions in Benign Regimes**:
-   On the clean Connecticut River, 100% of candidate dosing actions were certified without modification, demonstrating that the safety layer does not unnecessarily restrict operations or inflate chemical consumption when conditions are favorable.
+   Within the validated process regime, wrapping unverified controllers with `certified-dose` eliminated 100% of regulatory violations.
+2. **Shift in v0.4.0 Breakdown**:
+   In v0.3.0, records with extreme pH (> 8.5) were treated as "correctable" by over-dosing coagulant. In v0.4.0, these 854 records on the Maumee River are honestly classified as `OUTSIDE_MODEL_VALIDITY`: single-chemical alum dosing is refused because aluminum hydrolyzes into soluble aluminate $\text{Al(OH)}_4^-$ rather than forming floc. Exactly 5 records required dose correction within the valid coagulation window.
+3. **No Spurious Computational Fallbacks**:
+   Zero records fell back to unverified safe defaults due to timeout or numerical failure (`fallback_count = 0`). Latency remained strictly under 1.0 ms across all 5,727 records.
 
 ---
 
-## 4. Honest Model-Plant Divergence: Three Key Surprises
+## 4. Honest Model-Plant Divergence & v0.4.0 Resolutions
 
 While the **reachability mathematics held unconditionally** (zero soundness breaches), comparing real-world river phenomena to the underlying process model assumptions uncovered three significant physical limitations:
 
-### 1. The Algal Bloom pH Breakdown (Photochemical Restabilization)
+### 1. The Algal Bloom pH Breakdown (Resolved in v0.4.0)
 
-In late August, photosynthetic cyanobacteria blooms in Western Lake Erie and the lower Maumee River drove the raw intake pH to **9.30** (738 records exhibited $\text{pH} > 8.7$).
+In late August, photosynthetic cyanobacteria blooms in Western Lake Erie and the lower Maumee River drove raw intake pH up to **9.30** (738 records exhibited $\text{pH} > 8.7$; with uncertainty intervals, 854 records exceeded the out-of-range boundary 8.5).
 
-*   **Model Reaction**: The synthetic process model applies a quadratic pH penalty:
-    $$\phi_{\text{pH}} = 1.0 + 0.20 \cdot (\text{pH} - 7.0)^2$$
-    At $\text{pH } 9.3$, $\phi_{\text{pH}} \approx 2.06$, causing the reachability engine to demand higher coagulant doses ($>21\text{ mg/L}$) to compensate for reduced precipitation kinetics.
-*   **Physical Reality Divergence**: In aquatic chemistry, alum ($\text{Al}_2(\text{SO}_4)_3$) precipitates as insoluble amorphous $\text{Al(OH)}_3(\text{s})$ between $\text{pH } 6.2$ and $7.8$. At $\text{pH} > 8.5$, aluminum hydrolyzes into the soluble aluminate anion ($\text{Al(OH)}_4^-$). Dosing additional alum at $\text{pH } 9.3$ without acid pre-treatment does not form floc; it leads to severe **dissolved aluminum breakthrough** in finished drinking water (violating EPA secondary standards).
-*   **Engineering Takeaway**: A real plant facing $\text{pH } 9.3$ cannot rely on coagulant dosing alone; it requires a **multi-input acid feed controller** ($\text{H}_2\text{SO}_4$ or $\text{CO}_2$) to depress pH back into the coagulation window.
+*   **Model Reaction in v0.3.0**: The synthetic process model applied a quadratic pH penalty:
+    $$\phi_{\text{pH}} = 1.0 + 0.20 \cdot (\text{pH} - 7.2)^2$$
+    causing the certifier to attempt to "correct" candidate doses by demanding excessive coagulant.
+*   **Physical Reality**: Alum ($\text{Al}_2(\text{SO}_4)_3$) precipitates as insoluble amorphous $\text{Al(OH)}_3(\text{s})$ only between $\text{pH } 5.0$ and $8.0$. Above $\text{pH } 8.5$, aluminum hydrolyzes into soluble aluminate ($\text{Al(OH)}_4^-$). Dosing additional alum at $\text{pH } 9.3$ without acid pre-treatment causes **dissolved aluminum breakthrough** in finished drinking water.
+*   **v0.4.0 Resolution**: Added explicit pH validity boundaries (`PH_VALID_LO = 5.0`, `PH_VALID_HI = 8.0`, `PH_OUT_OF_RANGE_HI = 8.5`) and `CertificationStatus.OUTSIDE_MODEL_VALIDITY`. When $\text{pH} > 8.5$ or $\text{pH} < 5.0$, the engine **refuses to certify** single-chemical dosing, clearly warning operators that acid pre-treatment or blending is required before coagulant dosing.
 
-### 2. Storm Runoff Solids Overload & Uncertainty Proportionality
+### 2. Storm Runoff Solids Overload & Sensor Uncertainty Investigation (Resolved in v0.4.0)
 
-On August 18–19, upstream rainfall triggered a massive flash runoff: discharge surged from $405\text{ cfs}$ to $20,900\text{ cfs}$ ($51\times$ increase) and turbidity spiked to **$208.0\text{ NTU}$**.
+On August 18–19, upstream rainfall triggered a flash runoff: discharge surged $51\times$ and turbidity spiked to **$208.0\text{ NTU}$**.
 
-*   **Sensor Uncertainty Scaling**: Because optical turbidimeter error scales proportionally ($\pm 10\%$), the uncertainty interval width expanded from $\pm 1.2\text{ NTU}$ (at baseline) to **$\pm 20.8\text{ NTU}$** at peak storm loading ($[187.2, 228.8]\text{ NTU}$).
-*   **Reachability Over-Conservatism**: Standard interval arithmetic evaluates the worst-case combination of $[187.2, 228.8]\text{ NTU}$ turbidity and $[18.8, 20.8]\times$ nominal flow. Under such massive bounding boxes, standard coagulant dosing cannot guarantee sub-1.0 NTU effluent without coagulant aids (polyelectrolytes) or raw water blending.
-*   **Engineering Takeaway**: In high-turbidity storm regimes, fixed single-chemical models become overly conservative; operational plants switch to secondary polymer aids or temporarily throttle intake flow.
+*   **Sensor Uncertainty Investigation**: A dedicated investigation into EPA Method 180.1 and high-turbidity optical physics (see [`docs/SENSOR_UNCERTAINTY.md`](SENSOR_UNCERTAINTY.md)) demonstrated that EPA Method 180.1 is validated strictly for $0$–$40\text{ NTU}$. Above $100\text{ NTU}$, multiple-scattering effects degrade nephelometric precision.
+*   **v0.4.0 Resolution**: Implemented `TurbidityUncertaintyModel.PIECEWISE_EPA_RANGE` providing tiered uncertainty ($5\%$ for $T \le 40$, $10\%$ for $40 < T \le 100$, $15\%$ for $T > 100$). A sensitivity benchmark across all 5,727 records confirmed that outcomes are robust across models.
 
-### 3. Static Reachability vs. Hydraulic Residence Time
+### 3. Static Reachability vs. Hydraulic Residence Time (Documented Limitation)
 
 USGS telemetry is recorded every 15 minutes. However, a full-scale municipal water treatment plant has a hydraulic detention time of **$2\text{ to }4\text{ hours}$** in rapid mix, flocculation basins, and sedimentation clarifiers.
 
-*   **Model Formulation**: The current engine evaluates each 15-minute telemetry point as an instantaneous steady-state equilibrium.
-*   **Physical Reality**: A momentary 15-minute turbidity spike at the river intake does not instantaneously appear in the clarifier effluent; it is hydrodynamically dampened by dispersion and plug flow.
-*   **Engineering Takeaway**: For full-scale production deployment, the static reachability engine should be extended to a **dynamic state-space reachable tube** (e.g. zonotopic reachability over an ODE/PDE plug-flow model) rather than memoryless static intervals.
+*   **Status**: Explicitly documented in Limitations & Non-Goals. Full time-delayed reachability over plug-flow dynamic state-spaces remains future work.
+
 
 ---
 

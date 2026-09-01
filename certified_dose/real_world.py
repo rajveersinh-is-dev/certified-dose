@@ -44,6 +44,41 @@ class RealWorldRecord:
             raise ValueError(msg)
 
 
+class TurbidityUncertaintyModel(str):
+    """Turbidimeter field accuracy model selection.
+
+    PROPORTIONAL_10PCT: Flat +/-10% of reading (or +/-0.50 NTU floor).
+        This is the current default and matches a conservative interpretation
+        of EPA Method 180.1 field optical tolerance. Reasonable for 0-100 NTU.
+
+    PIECEWISE_EPA_RANGE: Three-tier piecewise model grounded in instrumentation
+        literature and manufacturer specifications:
+          - T <= 40 NTU: +/-5% of reading (EPA Method 180.1 validated range;
+            laboratory and high-quality field instruments achieve ~2% but
+            +/-5% conservatively accounts for field drift).
+          - 40 < T <= 100 NTU: +/-10% of reading (EPA 180.1 recommends dilution
+            above 40 NTU; multiple-scattering effects become non-negligible).
+          - T > 100 NTU: +/-15% of reading (multiple scattering at high
+            turbidity causes sub-linear signal response in nephelometric
+            instruments; the true uncertainty is larger in absolute terms;
+            Fondriest (2014) Environmental Measurement Systems; Hach 1720E
+            spec sheet: +/-5% for 0-1000 NTU under lab conditions, but field
+            studies suggest 10-20% at > 100 NTU with inline probes).
+
+        Floor: +/-0.50 NTU minimum absolute error (applies at all ranges).
+
+    References:
+      - EPA Method 180.1 (1993): Validated for 0-40 NTU; requires dilution above 40 NTU.
+      - ISO 7027:2016: Turbidity measurement standard (infrared preferred at high values).
+      - Fondriest Environmental (2014). Turbidity, Total Suspended Solids & Water Clarity.
+        Fundamentals of Environmental Measurements. fondriest.com.
+      - Hach Company (2020). 1720E Process Turbidimeter Instrument Manual.
+    """
+
+    PROPORTIONAL_10PCT = "PROPORTIONAL_10PCT"
+    PIECEWISE_EPA_RANGE = "PIECEWISE_EPA_RANGE"
+
+
 @dataclass(frozen=True)
 class InstrumentUncertaintySpecs:
     """Standard field instrumentation precision and measurement tolerances.
@@ -52,11 +87,12 @@ class InstrumentUncertaintySpecs:
     and standard industrial flow/temperature sensor specifications.
     """
 
-    turbidity_rel_error: float = 0.10  # +/- 10% optical field allowance
-    turbidity_min_abs_error: float = 0.50  # +/- 0.50 NTU floor
+    turbidity_rel_error: float = 0.10  # +/- 10% optical field allowance (default)
+    turbidity_min_abs_error: float = 0.50  # +/- 0.50 NTU floor (all models)
     ph_abs_error: float = 0.15  # +/- 0.15 pH units electrode drift
     temp_abs_error: float = 0.50  # +/- 0.50 C thermistor tolerance
     flow_rel_error: float = 0.05  # +/- 5.0% intake meter accuracy
+    turbidity_model: str = TurbidityUncertaintyModel.PROPORTIONAL_10PCT
 
 
 def derive_disturbance_intervals(
@@ -80,10 +116,28 @@ def derive_disturbance_intervals(
 
     record.validate()
 
-    # Turbidity interval: +/- max(min_abs, rel * value)
-    turb_delta = max(
-        specs.turbidity_min_abs_error, specs.turbidity_rel_error * record.turbidity_ntu
-    )
+    # Turbidity interval: error model depends on specs.turbidity_model
+    if specs.turbidity_model == TurbidityUncertaintyModel.PIECEWISE_EPA_RANGE:
+        # Piecewise model grounded in EPA Method 180.1 validated range and
+        # field instrumentation literature (see TurbidityUncertaintyModel docstring).
+        t = record.turbidity_ntu
+        if t <= 40.0:
+            # EPA Method 180.1 validated range: +/-5% conservative field allowance
+            rel_error = 0.05
+        elif t <= 100.0:
+            # Above EPA validated range; multiple-scattering begins: +/-10%
+            rel_error = 0.10
+        else:
+            # High turbidity (>100 NTU): multiple-scattering dominant: +/-15%
+            rel_error = 0.15
+        turb_delta = max(specs.turbidity_min_abs_error, rel_error * t)
+    else:
+        # Default: flat proportional +/-10% (PROPORTIONAL_10PCT)
+        turb_delta = max(
+            specs.turbidity_min_abs_error,
+            specs.turbidity_rel_error * record.turbidity_ntu,
+        )
+
     turb_lo = max(0.01, record.turbidity_ntu - turb_delta)
     turb_hi = record.turbidity_ntu + turb_delta
     turb_interval = Interval(turb_lo, turb_hi)
@@ -268,6 +322,7 @@ def evaluate_dataset_on_pipeline(
     heur_accepted = 0
     heur_corrected = 0
     heur_fallback = 0
+    heur_outside_validity = 0
     heur_times: list[float] = []
     heur_doses: list[float] = []
     heur_applied_doses: list[float] = []
@@ -275,6 +330,7 @@ def evaluate_dataset_on_pipeline(
     aggr_accepted = 0
     aggr_corrected = 0
     aggr_fallback = 0
+    aggr_outside_validity = 0
     aggr_times: list[float] = []
     aggr_doses: list[float] = []
     aggr_applied_doses: list[float] = []
@@ -315,6 +371,8 @@ def evaluate_dataset_on_pipeline(
             heur_accepted += 1
         elif res_heur.status == CertificationStatus.REJECTED_CORRECTED:
             heur_corrected += 1
+        elif res_heur.status == CertificationStatus.OUTSIDE_MODEL_VALIDITY:
+            heur_outside_validity += 1
         else:
             heur_fallback += 1
 
@@ -339,38 +397,51 @@ def evaluate_dataset_on_pipeline(
             aggr_accepted += 1
         elif res_aggr.status == CertificationStatus.REJECTED_CORRECTED:
             aggr_corrected += 1
+        elif res_aggr.status == CertificationStatus.OUTSIDE_MODEL_VALIDITY:
+            aggr_outside_validity += 1
         else:
             aggr_fallback += 1
 
         # 3. Ground truth evaluation against model kinetics at true point disturbances
-        true_disturbances = {
-            "turbidity": rec.turbidity_ntu,
-            "flow_rate": flow_norm,
-            "ph": rec.ph,
-            "temperature": rec.temperature_c,
-        }
-        y_naive_heur = model.evaluate_scalar(d_heur, true_disturbances)
-        y_naive_aggr = model.evaluate_scalar(d_aggr, true_disturbances)
-        y_cert_heur = model.evaluate_scalar(res_heur.certified_dose, true_disturbances)
-        y_cert_aggr = model.evaluate_scalar(res_aggr.certified_dose, true_disturbances)
+        # Skip for records where pH validity is exceeded (model output is misleading)
+        if not res_heur.process_model_valid:
+            # pH is outside validity window -- model output is not meaningful for
+            # soundness checking. Soundness check is scoped to valid pH regime.
+            pass
+        else:
+            true_disturbances = {
+                "turbidity": rec.turbidity_ntu,
+                "flow_rate": flow_norm,
+                "ph": rec.ph,
+                "temperature": rec.temperature_c,
+            }
+            y_naive_heur = model.evaluate_scalar(d_heur, true_disturbances)
+            y_naive_aggr = model.evaluate_scalar(d_aggr, true_disturbances)
+            y_cert_heur = model.evaluate_scalar(
+                res_heur.certified_dose, true_disturbances
+            )
+            y_cert_aggr = model.evaluate_scalar(
+                res_aggr.certified_dose, true_disturbances
+            )
 
-        if y_naive_heur > compliance_limit:
-            unverified_heuristic_violations += 1
-        if y_naive_aggr > compliance_limit:
-            unverified_aggressive_violations += 1
-        if y_cert_heur > compliance_limit:
-            certified_heuristic_violations += 1
-        if y_cert_aggr > compliance_limit:
-            certified_aggressive_violations += 1
+            if y_naive_heur > compliance_limit:
+                unverified_heuristic_violations += 1
+            if y_naive_aggr > compliance_limit:
+                unverified_aggressive_violations += 1
+            if y_cert_heur > compliance_limit:
+                certified_heuristic_violations += 1
+            if y_cert_aggr > compliance_limit:
+                certified_aggressive_violations += 1
 
-        if res_heur.reachable_set.hi < y_cert_heur - 1e-9:
-            model_soundness_breaches += 1
+            if res_heur.reachable_set.hi < y_cert_heur - 1e-9:
+                model_soundness_breaches += 1
 
         if (
             rec.turbidity_ntu > 80.0
-            or rec.ph > 8.7
+            or rec.ph > 8.5
             or res_heur.status == CertificationStatus.FAILED_SAFE_FALLBACK
             or res_aggr.status == CertificationStatus.FAILED_SAFE_FALLBACK
+            or res_heur.status == CertificationStatus.OUTSIDE_MODEL_VALIDITY
         ):
             flagged_records.append(
                 {
@@ -414,6 +485,10 @@ def evaluate_dataset_on_pipeline(
             "accepted_pct": round((heur_accepted / total_records) * 100.0, 2),
             "corrected_count": heur_corrected,
             "corrected_pct": round((heur_corrected / total_records) * 100.0, 2),
+            "outside_validity_count": heur_outside_validity,
+            "outside_validity_pct": round(
+                (heur_outside_validity / total_records) * 100.0, 2
+            ),
             "fallback_count": heur_fallback,
             "fallback_pct": round((heur_fallback / total_records) * 100.0, 2),
             "unverified_violations": unverified_heuristic_violations,
@@ -431,6 +506,10 @@ def evaluate_dataset_on_pipeline(
             "accepted_pct": round((aggr_accepted / total_records) * 100.0, 2),
             "corrected_count": aggr_corrected,
             "corrected_pct": round((aggr_corrected / total_records) * 100.0, 2),
+            "outside_validity_count": aggr_outside_validity,
+            "outside_validity_pct": round(
+                (aggr_outside_validity / total_records) * 100.0, 2
+            ),
             "fallback_count": aggr_fallback,
             "fallback_pct": round((aggr_fallback / total_records) * 100.0, 2),
             "unverified_violations": unverified_aggressive_violations,

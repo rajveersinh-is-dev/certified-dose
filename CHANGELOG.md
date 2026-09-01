@@ -5,7 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-09-01
+
+### Fixed
+- **Process Model Chemical Correctness in Alkaline & Acidic Regimes (Motivated by USGS Telemetry)**:
+  - Addressed the fundamental physical gap uncovered during continuous real-world evaluation on the Maumee River (`docs/REAL_WORLD_EVALUATION.md` §4.1), where cyanobacterial algal blooms drove intake pH to 9.3. Above pH ~8.5, aluminum hydrolyzes into soluble aluminate ($\text{Al(OH)}_4^-$) rather than precipitating as insoluble $\text{Al(OH)}_3$ floc. The quadratic penalty $\phi_{\text{pH}} = 1.0 + 0.20(\text{pH} - 7.2)^2$ previously demanded higher coagulant doses, which was qualitatively backwards (more alum at pH 9.3 causes dissolved aluminum breakthrough, not better settling).
+  - Defined explicit physical regime boundaries in `SyntheticProcessModel`: `PH_VALID_LO = 5.0`, `PH_VALID_HI = 8.0`, `PH_WARN_HI = 8.5`, `PH_OUT_OF_RANGE_LO = 5.0`, `PH_OUT_OF_RANGE_HI = 8.5`.
+  - Added `PhValidityStatus` enum (`VALID`, `WARNING`, `OUT_OF_RANGE`) and `check_ph_validity()` method with aquatic chemistry citations (Stumm & Morgan 1996, Crittenden et al. 2012, Howe et al. 2012, EPA-815-R-99-012).
+  - Added `CertificationStatus.OUTSIDE_MODEL_VALIDITY` and fields `process_model_valid: bool` and `model_validity_reason: str` to `CertificationResult`.
+  - The certifier now **refuses to certify** single-chemical alum dosing when disturbance uncertainty straddles $\text{pH} > 8.5$ or $\text{pH} < 5.0$, transparently warning operators that acid pre-treatment ($\text{H}_2\text{SO}_4$/$\text{CO}_2$) or blending is required before coagulant dosing can be certified.
+  - Distinctly surfaced `OUTSIDE_MODEL_VALIDITY` in the CLI (`certified-dose check`), the operator explainability report (`result.explain()`), and the interactive Streamlit dashboard inspector tab with prominent warning banners.
+  - Re-benchmarking against the 2,862-record Maumee River dataset shifted 854 records (29.84%) from misleading "corrected" outcomes to honest `OUTSIDE_MODEL_VALIDITY` refusals, while genuine corrections dropped to 5 records (0.17%).
+
+### Added
+- **Piecewise EPA Method 180.1 Tiered Sensor Uncertainty Model** (`certified_dose/real_world.py`, `docs/SENSOR_UNCERTAINTY.md`):
+  - Conducted literature investigation into nephelometric optical physics: EPA Method 180.1 is validated strictly for $0 - 40\text{ NTU}$; above $40\text{ NTU}$ dilution is required; at $T > 100\text{ NTU}$, multiple scattering causes non-linear signal degradation and increases field measurement uncertainty.
+  - Added `TurbidityUncertaintyModel` enum (`PROPORTIONAL_10PCT`, `PIECEWISE_EPA_RANGE`) to `InstrumentUncertaintySpecs` and `derive_disturbance_intervals()`.
+  - Implemented three-tier model: $\pm 5\%$ for $T \le 40\text{ NTU}$, $\pm 10\%$ for $40 < T \le 100\text{ NTU}$, $\pm 15\%$ for $T > 100\text{ NTU}$, with a universal $\pm 0.50\text{ NTU}$ floor.
+  - Created `benchmarks/sensor_uncertainty_benchmark.py` and `docs/SENSOR_UNCERTAINTY.md` detailing sensitivity analysis across 5,727 USGS records: at low turbidity ($T < 5\text{ NTU}$), the $0.50\text{ NTU}$ floor renders outcomes 100% invariant to relative error choice; at high turbidity, the tiered model provides grounded conservatism.
+- **Dedicated Validation Test Suites**:
+  - `tests/test_ph_validity.py`: 28 unit and integration tests covering scalar and interval validity classifications, out-of-range boundaries, exact edge conditions, and actionable operator guidance generation.
+  - `tests/test_sensor_uncertainty.py`: Unit tests verifying proportional vs. piecewise bounds derivation across all turbidity tiers.
+- **Documentation Updates**:
+  - Updated `docs/SOUNDNESS.md` with Section 8 defining operational validity scope vs. mathematical inclusion soundness.
+  - Updated `docs/REAL_WORLD_EVALUATION.md` with v0.4.0 benchmark metrics and divergence resolutions.
+  - Updated `README.md` verification matrix and research disclosure.
+
 ## [0.3.0] - 2026-09-01
+
 
 ### Added
 - **Adversarial Edge-Case Test Suite** (`tests/test_adversarial.py`): Dedicated test suite with 7 comprehensive suites covering degenerate intervals ($w \to 0$) collapsing to exact scalar evaluation, multi-order-of-magnitude uncertainty, exact compliance limit $\epsilon$-discrimination, IEEE subnormals ($10^{-300}$) and extreme magnitudes ($10^{140}$), complete `Interval.__pow__` exponent matrix, NaN/Inf fail-safe rejection, and correlated non-independent sensor manifold over-approximation.
