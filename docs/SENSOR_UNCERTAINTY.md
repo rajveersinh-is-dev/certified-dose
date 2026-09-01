@@ -1,4 +1,4 @@
-﻿# Sensor Uncertainty Investigation & Sensitivity Analysis
+# Sensor Uncertainty Investigation & Sensitivity Analysis
 
 **Version:** 0.4.0  
 **Status:** Validated  
@@ -41,15 +41,19 @@ This document summarizes the literature and instrumentation findings, specifies 
 
 To reflect both the high precision within the EPA-validated window and the optical degradation at high turbidity, v0.4.0 introduces the `TurbidityUncertaintyModel.PIECEWISE_EPA_RANGE` in `certified_dose.real_world`:
 
-$$\Delta T = \max\left(0.50\text{ NTU},\, \epsilon(T) \times T\right)$$
+$$
+\Delta T = \max\left(0.50\text{ NTU},\, \epsilon(T) \times T\right)
+$$
 
 where the fractional relative uncertainty $\epsilon(T)$ is piecewise defined:
 
-$$\epsilon(T) = \begin{cases} 
+$$
+\epsilon(T) = \begin{cases} 
 0.05 & \text{for } T \le 40.0\text{ NTU} \quad \text{(EPA Method 180.1 validated range; conservative field allowance)} \\
 0.10 & \text{for } 40.0 < T \le 100.0\text{ NTU} \quad \text{(Transitional regime; un-diluted nephelometry)} \\
 0.15 & \text{for } T > 100.0\text{ NTU} \quad \text{(High-turbidity multiple-scattering degradation)}
-\end{cases}$$
+\end{cases}
+$$
 
 An absolute floor of $\Delta T_{\min} = 0.50$ NTU is maintained across all ranges to account for sensor zero-drift and electronic noise.
 
