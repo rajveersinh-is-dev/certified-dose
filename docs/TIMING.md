@@ -108,4 +108,4 @@ python benchmarks/latency_benchmark.py
 # Run quick verification smoke test
 python benchmarks/latency_benchmark.py --quick
 ```
-Raw machine-readable latency data is emitted to [`benchmarks/results_latency.json`](file:///C:/Users/davea/.gemini/antigravity/scratch/certified-dose/benchmarks/results_latency.json).
+Raw machine-readable latency data is emitted to [`benchmarks/results_latency.json`](../benchmarks/results_latency.json).

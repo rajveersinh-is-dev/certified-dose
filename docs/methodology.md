@@ -25,7 +25,7 @@ Standard machine learning (ML) controllers (reinforcement learning, gradient boo
 
 $$\min_{d_t} \mathbb{E}_{\theta \sim \mathcal{D}} \left[ \text{Cost}(d_t) + \lambda \cdot \ell(y_t) \right]$$
 
-Because ML controllers optimize expected (average) values, they offer **no worst-case safety guarantees**. If an unexpected disturbance realization $\theta^* \in \Theta$ occurs, an aggressive controller that minimized chemical dosage to shave cost will fail to destabilize colloidal particles, resulting in severe compliance violations.
+Because ML controllers optimize expected (average) values, they offer **no worst-case safety guarantees**. If an unexpected disturbance realization $\theta^{\star} \in \Theta$ occurs, an aggressive controller that minimized chemical dosage to shave cost will fail to destabilize colloidal particles, resulting in severe compliance violations.
 
 `certified-dose` solves this by introducing a formal reachability certification layer between the candidate controller and the plant actuator.
 
@@ -130,9 +130,9 @@ $$T_{eff} = T_{\text{rem}} + T_{\text{over}}$$
 
 By the fundamental theorem of interval arithmetic (**Inclusion Monotonicity**):
 
-$$\forall \theta \in \Theta, \quad f(d, \theta) \in [f](d, \Theta) = [T_{eff}^{\min}, T_{eff}^{\max}]$$
+$$\forall \theta \in \Theta, \quad f(d, \theta) \in \left[ f \right]\left(d, \Theta\right) = [T_{\text{eff}}^{\min}, T_{\text{eff}}^{\max}]$$
 
-Because each uncertain variable ($T_{in}, Q, pH, T$) appears with clean monotonic properties within the sub-expressions, evaluating $[f](d, \Theta)$ via our `Interval` implementation yields a **provably conservative enclosing set** containing all possible effluent realizations.
+Because each uncertain variable ($T_{in}, Q, pH, T$) appears with clean monotonic properties within the sub-expressions, evaluating $\left[ f \right]\left(d, \Theta\right)$ via our `Interval` implementation yields a **provably conservative enclosing set** containing all possible effluent realizations.
 
 ### Safety Margin Widening
 

@@ -56,8 +56,8 @@ flowchart TD
 The mathematical safety guarantees of `certified-dose` rest on five core assumptions:
 
 ### Assumption 1: Sensor Interval Inclosure
-**Assumption**: The true, instantaneous physical disturbance state $\theta^* = (T_{\text{in}}^*, Q^*, \text{pH}^*, T^*)$ is strictly contained within the interval bounds passed to the certifier:
-$$\theta^* \in [\underline{\theta}, \overline{\theta}]$$
+**Assumption**: The true, instantaneous physical disturbance state $\theta^{\star} = (T_{\text{in}}^{\star}, Q^{\star}, \text{pH}^{\star}, T^{\star})$ is strictly contained within the interval bounds passed to the certifier:
+$$\theta^{\star} \in [\underline{\theta}, \overline{\theta}]$$
 The certifier assumes that sensor calibration bounds (e.g. measured value $\pm 15\%$) fully account for sensor noise, measurement bias, and digitization error.
 
 ### Assumption 2: Process Model Kinetic Boundedness
@@ -66,8 +66,8 @@ $$y_{\text{plant}}(d, \theta) \le f(d, \theta) + \delta_{\text{margin}}$$
 The certifier assumes that unmodeled physical dynamics (e.g., flocculator spatial dead zones, temperature-dependent viscosity shifts, mixing turbulence) are dominated by the model's structural conservatism and the additive safety margin ($\delta_{\text{margin}} = 0.02\text{ NTU}$).
 
 ### Assumption 3: Actuator Setpoint Tracking
-**Assumption**: The physical dosing pump delivers an actual applied chemical dose $d^*$ that conforms to the commanded certified dose $d_{\text{cert}}$ within a known bounded error $\Delta d$:
-$$d^* \in [d_{\text{cert}} - \Delta d, d_{\text{cert}} + \Delta d]$$
+**Assumption**: The physical dosing pump delivers an actual applied chemical dose $d^{\star}$ that conforms to the commanded certified dose $d_{\text{cert}}$ within a known bounded error $\Delta d$:
+$$d^{\star} \in [d_{\text{cert}} - \Delta d, d_{\text{cert}} + \Delta d]$$
 
 ### Assumption 4: Deterministic Arithmetic & Execution Environment
 **Assumption**: The runtime environment (Python interpreter, underlying OS kernel, CPU) deterministically executes IEEE 754 floating-point arithmetic without hardware bit flips (e.g., cosmic ray upsets), memory corruption, or thread race conditions.
