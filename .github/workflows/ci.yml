@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-format:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff black
+
+      - name: Run Ruff Linting
+        run: ruff check certified_dose tests
+
+      - name: Run Black Code Formatting Check
+        run: black --check certified_dose tests
+
+  type-check:
+    name: Strict Type Checking
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dashboard,dev]"
+
+      - name: Run Mypy (Strict Mode)
+        run: mypy --strict certified_dose
+
+  test:
+    name: Test & Coverage (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package with test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dashboard,dev]"
+
+      - name: Run Pytest with Coverage
+        run: |
+          pytest --cov=certified_dose --cov-report=term-missing --cov-fail-under=90 tests
