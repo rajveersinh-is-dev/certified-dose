@@ -195,6 +195,36 @@ python benchmarks/large_scale_fuzz.py --trials 10000000 --scenarios 1000
 
 ---
 
+## Conservatism & Chemical-Cost Overhead Benchmark
+
+To quantify the economic cost of formal reachability guarantees vs. unverified cost-minimizing controllers, we benchmarked the system across an environmental uncertainty sweep ($\pm 5\%$ through $\pm 30\%$ disturbance intervals) during a simulated storm surge (influent turbidity spiking to $>60\text{ NTU}$):
+
+![Conservatism Benchmark](docs/assets/benchmark_conservatism.png)
+
+### Uncertainty Parameter Sweep Results
+
+| Uncertainty Width | Naive Violations (Unchecked) | Certified Violations | Safety Interventions | Naive Dose | Certified Dose | Chemical Overhead (%) | Peak Effluent |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **±5%** | 25 (25.0%) | **0 (0.0%)** | 25 (25.0%) | 14.77 mg/L | 15.44 mg/L | **+4.5%** | 0.923 NTU |
+| **±10%** | 25 (25.0%) | **0 (0.0%)** | 29 (29.0%) | 14.77 mg/L | 15.73 mg/L | **+6.5%** | 0.885 NTU |
+| **±15%** | 25 (25.0%) | **0 (0.0%)** | 93 (93.0%) | 14.77 mg/L | 16.21 mg/L | **+9.7%** | 0.850 NTU |
+| **±20%** | 25 (25.0%) | **0 (0.0%)** | 100 (100.0%) | 14.77 mg/L | 16.90 mg/L | **+14.4%** | 0.819 NTU |
+| **±25%** | 25 (25.0%) | **0 (0.0%)** | 100 (100.0%) | 14.77 mg/L | 17.66 mg/L | **+19.6%** | 0.791 NTU |
+| **±30%** | 25 (25.0%) | **0 (0.0%)** | 100 (100.0%) | 14.77 mg/L | 18.53 mg/L | **+25.4%** | 0.767 NTU |
+
+**Key Takeaways**:
+1. **Zero Regulatory Breaches**: At all uncertainty widths, `certified-dose` achieved **0 violations**, whereas the unverified controller committed violations on 25% of control steps.
+2. **Minimal Overhead at Realistic Sensor Tolerances**: At standard industrial sensor noise levels ($\pm 10\%$ to $\pm 15\%$), the worst-case safety guarantee requires only **$+6.5\%$ to $+9.7\%$** chemical overhead.
+3. **Graceful Scaling**: Even under extreme $\pm 30\%$ sensor uncertainty, the chemical overhead is bounded at $+25.4\%$, remaining far below traditional fixed emergency dosing recipes ($> +60\%$).
+
+Run the benchmark suite and generate figures locally:
+
+```bash
+python benchmarks/conservatism_benchmark.py --steps 100 --seed 42
+```
+
+---
+
 ## Testing & Verification
 
 The test suite includes property-based tests (Hypothesis), Monte Carlo fuzzing against brute-force sampling, unit tests, and closed-loop end-to-end scenarios:
