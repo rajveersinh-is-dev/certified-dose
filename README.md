@@ -270,18 +270,42 @@ certified-dose validate --dataset van_benschoten_1990
 
 ---
 
+## Real-World Operational Telemetry Evaluation (USGS NWIS)
+
+To stress-test `certified-dose` beyond static bench-scale jar tests, we evaluated the reachability pipeline against **5,727 continuous 15-minute operational sensor records** fetched live from two United States Geological Survey (USGS) surface drinking water intake stations via [`scripts/fetch_real_world_data.py`](scripts/fetch_real_world_data.py):
+
+| Station | Real-World Operational Context | Evaluated Records | Unchecked Violations | Certified Violations | Safety Corrections | Chemical Overhead |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| **USGS 04193500**<br>(Maumee River, OH) | Primary raw intake for City of Toledo Collins Park WTP; high agricultural runoff, storm surges up to $208\text{ NTU}$, algal bloom $\text{pH}$ up to $9.30$ | **2,862** (30 days) | 103 (3.6%) | **0 (0.0%)** | 632 (22.1%) | **+1.42%** |
+| **USGS 01184000**<br>(Connecticut River, CT) | Upland municipal drinking water supply; stable low-turbidity river (median $0.70\text{ NTU}$, mean $\text{pH } 7.25$) | **2,865** (30 days) | 0 (0.0%) | **0 (0.0%)** | 0 (0.0%) | **0.00%** |
+
+📖 **Detailed Operational Report**: See **[`docs/REAL_WORLD_EVALUATION.md`](docs/REAL_WORLD_EVALUATION.md)** for exhaustive analysis of instrument precision derivations, physical model-plant divergence, and sensor noise scaling.
+
+Run the ingestion and evaluation pipeline locally:
+
+```bash
+# Fetch latest 30-day live USGS telemetry to data/real_world/
+python scripts/fetch_real_world_data.py --days 30
+
+# Run certification benchmark across real-world data streams
+python benchmarks/real_world_benchmark.py
+```
+
+---
+
 ## Testing & Verification
 
 The verification regime combines formal proof, property-based testing, 10M-trial Monte Carlo fuzzing, adversarial boundary tests, and mutation testing:
 
 | Verification Layer | Tool / Framework | Scope / Invariant Verified | Result / Coverage |
 | :--- | :--- | :--- | :---: |
-| **Line & Branch Coverage** | `pytest`, `pytest-cov` | Statement and decision branch testing across all modules | **95.16% coverage** (>90% CI gate) |
+| **Line & Branch Coverage** | `pytest`, `pytest-cov` | Statement and decision branch testing across all modules | **95.05% coverage** (>90% CI gate) |
 | **Property-Based Testing** | `Hypothesis` | Fuzz-verifies algebraic axioms (commutativity, associativity, monotonicity) | **Passed (100+ examples/test)** |
 | **Adversarial Edge Cases** | `tests/test_adversarial.py` | Degenerate intervals ($w \to 0$), extreme ranges, limit $\epsilon$-discrimination, IEEE subnormals, complete `__pow__` matrix, NaN/Inf rejection, correlated sensor manifolds | **Passed (7 dedicated suites)** |
 | **Mutation Testing** | `cosmic-ray` | AST mutation testing on core interval math (`certified_dose/intervals.py`) | **100.0% mutation score** (all mutants killed) |
 | **Monte Carlo Fuzzing** | `benchmarks/large_scale_fuzz.py` | 10,000,000 randomized state vectors vs interval enclosures | **0 violations across 10M trials** |
 | **Latency Benchmark** | `benchmarks/latency_benchmark.py` | Single check median: **$22.6\,\mu\text{s}$**, p99: **$33.6\,\mu\text{s}$**, WCET: **$81.0\,\mu\text{s}$**; Bisection WCET: **$1.57\,\text{ms}$** | **Hard 50 ms timeout cap** |
+| **Real-World Operational Telemetry** | `benchmarks/real_world_benchmark.py` | 5,727 continuous 15-minute sensor records from USGS drinking water intakes | **100% sound enclosure, 0 certified violations** |
 | **Static Analysis** | `black`, `ruff`, `mypy --strict` | Formatting, linting, and strict type safety | **0 errors across all checks** |
 
 ```bash
@@ -292,8 +316,8 @@ pytest --cov=certified_dose --cov-report=term-missing --cov-fail-under=90
 pytest tests/test_adversarial.py -v
 
 # Run format checking, linting, and strict type verification
-black --check certified_dose tests benchmarks
-ruff check certified_dose tests benchmarks
+black --check certified_dose tests benchmarks scripts
+ruff check certified_dose tests benchmarks scripts
 mypy --strict certified_dose
 ```
 
@@ -308,6 +332,7 @@ To facilitate independent review by safety auditors, control engineers, and acad
 - ⏱️ **[Execution Timing & Latency Guarantees (docs/TIMING.md)](docs/TIMING.md)**: Empirical latency profiles, $\mathcal{O}(1)$ computational complexity analysis, and control-loop feasibility matrix.
 - 🛡️ **[Cyber-Physical Threat Model (docs/THREAT_MODEL.md)](docs/THREAT_MODEL.md)**: Detailed trust boundaries, explicit trust axioms, and failure modes when sensor or kinetic assumptions are violated.
 - 🏛️ **[Regulatory Context & Gap Analysis (docs/REGULATORY_CONTEXT.md)](docs/REGULATORY_CONTEXT.md)**: Comparison of point-in-time reachability against EPA rolling standards (SWTR, LT2ESWTR) and deployment prerequisites (GAMP 5, 21 CFR Part 11).
+- 🌊 **[Real-World Operational Evaluation (docs/REAL_WORLD_EVALUATION.md)](docs/REAL_WORLD_EVALUATION.md)**: Performance analysis on 5,727 live USGS continuous monitoring records from municipal drinking water intakes.
 
 > **We invite external review**: If you are a domain specialist in water treatment, formal methods, or functional safety, please review the checklist and share feedback via [GitHub Issues (External Review Template)](https://github.com/Raj123-0/certified-dose/issues/new?template=review_feedback.md).
 
@@ -320,9 +345,13 @@ To facilitate independent review by safety auditors, control engineers, and acad
 > `certified-dose` is an open-source research and educational library intended to demonstrate the principles of formal reachability analysis and verified interval arithmetic in process-control dosing.
 >
 > 1. **Empirically Validated Steady-State Kinetics**: The steady-state coagulant dose-response curve has been empirically validated against two independent published bench-scale water treatment jar-testing benchmarks (*Edwards 1997, Journal AWWA 89(5):78-89* and *Van Benschoten & Edzwald 1990, Water Research 24(12):1519-1526*), demonstrating $R^2 \ge 0.995$ and compliance-window precision of $\text{RMSE} < 0.10\text{ NTU}$ across $15 - 60\text{ mg/L}$ doses (run `certified-dose validate` to view live diagnostics).
-> 2. **What Remains Illustrative / Unvalidated**:
->    - **Hydraulic Transport Dynamics**: Full-scale water treatment plants feature spatial dead-zones, flocculator baffle mixing gradients, and non-ideal clarifier residence time distributions (RTDs) that are represented here by a simplified bulk scaling factor $(Q/Q_{\text{nom}})^{0.85}$.
+> 2. **Operational Realities Discovered from Real USGS Intake Data**:
+>    - **Photochemical Algal Bloom pH Shifts ($\text{pH} > 8.5$)**: Live telemetry from the Maumee River revealed summer cyanobacterial blooms driving pH as high as $9.30$. Under such basic conditions, aluminum hydrolyzes into soluble aluminate ($\text{Al(OH)}_4^-$), rendering additional alum dosing chemically ineffective and risking dissolved aluminum breakthrough. Real plants require dual-chemical acid dosing ($\text{H}_2\text{SO}_4$/$\text{CO}_2$) to depress pH before coagulation.
+>    - **Sensor Uncertainty Scaling During Flash Floods**: Under EPA Method 180.1 optical turbidimeter physics, sensor tolerance scales proportionally ($\pm 10\%$). During a $208\text{ NTU}$ storm spike, sensor uncertainty expands to $\pm 20.8\text{ NTU}$ ($7\times$ wider than synthetic assumptions), causing interval arithmetic to become excessively conservative without coagulant aid polymers or flow throttling.
+>    - **Dynamic Hydraulic Residence Time**: Real sedimentation clarifiers have a $2 - 4\text{ hour}$ hydraulic detention delay that hydrodynamically dampens 15-minute intake spikes; the static reachability engine currently treats each reading as an instantaneous steady-state equilibrium.
+> 3. **What Remains Illustrative / Unvalidated**:
 >    - **Complex Water Chemistry**: Natural raw water contains varying dissolved organic carbon (DOC), specific UV absorbance (SUVA), alkalinity buffers, and silica interferents that require site-specific jar-test calibration.
 >    - **Actuator & Sensor Latencies**: Physical dosing pumps exhibit mechanical dead-bands, priming delays, and sensor transit pipeline delays that are not modeled.
-> 3. **Not Validated for Real Regulatory Use**: This software is **not** certified, accredited, or approved by the EPA, FDA, or municipal authorities for deployment in actual regulated drinking water utilities, wastewater facilities, or pharmaceutical manufacturing plants.
-> 4. **Non-Goals**: This package does not provide real-time hardware PLC drivers, SCADA/OPC-UA integration, automated regulatory filing compliance, or hardware emergency shutdown interlocks on physical equipment.
+> 4. **Not Validated for Real Regulatory Use**: This software is **not** certified, accredited, or approved by the EPA, FDA, or municipal authorities for deployment in actual regulated drinking water utilities, wastewater facilities, or pharmaceutical manufacturing plants.
+> 5. **Non-Goals**: This package does not provide real-time hardware PLC drivers, SCADA/OPC-UA integration, automated regulatory filing compliance, or hardware emergency shutdown interlocks on physical equipment.
+
