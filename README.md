@@ -299,11 +299,13 @@ The verification regime combines formal proof, property-based testing, 10M-trial
 
 | Verification Layer | Tool / Framework | Scope / Invariant Verified | Result / Coverage |
 | :--- | :--- | :--- | :---: |
-| **Line & Branch Coverage** | `pytest`, `pytest-cov` | Statement and decision branch testing across all modules | **95.05% coverage** (>90% CI gate) |
+| **Line & Branch Coverage** | `pytest`, `pytest-cov` | Statement and decision branch testing across all modules | **94.55% coverage** (>90% CI gate) |
 | **Property-Based Testing** | `Hypothesis` | Fuzz-verifies algebraic axioms (commutativity, associativity, monotonicity) | **Passed (100+ examples/test)** |
+| **pH Regime Validity & Chemical Boundaries** | `tests/test_ph_validity.py` | Validates refusal of certification at $\text{pH} > 8.5$ and $\text{pH} < 5.0$ (aluminate & acidic regimes), boundary conditions, explainability guidance | **Passed (28 dedicated tests)** |
+| **Sensor Uncertainty Models** | `tests/test_sensor_uncertainty.py` | Bounded interval derivation for proportional and EPA Method 180.1 piecewise tiered models | **Passed (all tiers verified)** |
 | **Adversarial Edge Cases** | `tests/test_adversarial.py` | Degenerate intervals ($w \to 0$), extreme ranges, limit $\epsilon$-discrimination, IEEE subnormals, complete `__pow__` matrix, NaN/Inf rejection, correlated sensor manifolds | **Passed (7 dedicated suites)** |
 | **Mutation Testing** | `cosmic-ray` | AST mutation testing on core interval math (`certified_dose/intervals.py`) | **100.0% mutation score** (all mutants killed) |
-| **Monte Carlo Fuzzing** | `benchmarks/large_scale_fuzz.py` | 10,000,000 randomized state vectors vs interval enclosures | **0 violations across 10M trials** |
+| **Monte Carlo Fuzzing** | `benchmarks/large_scale_fuzz.py` | Randomized state vectors vs interval enclosures | **0 violations across 10M trials** |
 | **Latency Benchmark** | `benchmarks/latency_benchmark.py` | Single check median: **$22.6\,\mu\text{s}$**, p99: **$33.6\,\mu\text{s}$**, WCET: **$81.0\,\mu\text{s}$**; Bisection WCET: **$1.57\,\text{ms}$** | **Hard 50 ms timeout cap** |
 | **Real-World Operational Telemetry** | `benchmarks/real_world_benchmark.py` | 5,727 continuous 15-minute sensor records from USGS drinking water intakes | **100% sound enclosure, 0 certified violations** |
 | **Static Analysis** | `black`, `ruff`, `mypy --strict` | Formatting, linting, and strict type safety | **0 errors across all checks** |
@@ -327,7 +329,8 @@ mypy --strict certified_dose
 
 To facilitate independent review by safety auditors, control engineers, and academic researchers, complete formal and operational artifacts are documented:
 
-- 📐 **[Formal Soundness Proof (docs/SOUNDNESS.md)](docs/SOUNDNESS.md)**: Self-contained mathematical proof demonstrating inclusion monotonicity and exact bounds on shared variables.
+- 📐 **[Formal Soundness Proof (docs/SOUNDNESS.md)](docs/SOUNDNESS.md)**: Self-contained mathematical proof demonstrating inclusion monotonicity, exact bounds on shared variables, and operational pH validity boundaries.
+- 🔬 **[Sensor Uncertainty Investigation (docs/SENSOR_UNCERTAINTY.md)](docs/SENSOR_UNCERTAINTY.md)**: EPA Method 180.1 analysis, optical physics at high turbidity, piecewise tiered error models, and empirical sensitivity sweeps.
 - 📋 **[External Reviewer Checklist (docs/REVIEW_CHECKLIST.md)](docs/REVIEW_CHECKLIST.md)**: Structured inspection guide outlining what code to inspect, which tests to execute, and properties to verify.
 - ⏱️ **[Execution Timing & Latency Guarantees (docs/TIMING.md)](docs/TIMING.md)**: Empirical latency profiles, $\mathcal{O}(1)$ computational complexity analysis, and control-loop feasibility matrix.
 - 🛡️ **[Cyber-Physical Threat Model (docs/THREAT_MODEL.md)](docs/THREAT_MODEL.md)**: Detailed trust boundaries, explicit trust axioms, and failure modes when sensor or kinetic assumptions are violated.
@@ -346,12 +349,13 @@ To facilitate independent review by safety auditors, control engineers, and acad
 >
 > 1. **Empirically Validated Steady-State Kinetics**: The steady-state coagulant dose-response curve has been empirically validated against two independent published bench-scale water treatment jar-testing benchmarks (*Edwards 1997, Journal AWWA 89(5):78-89* and *Van Benschoten & Edzwald 1990, Water Research 24(12):1519-1526*), demonstrating $R^2 \ge 0.995$ and compliance-window precision of $\text{RMSE} < 0.10\text{ NTU}$ across $15 - 60\text{ mg/L}$ doses (run `certified-dose validate` to view live diagnostics).
 > 2. **Operational Realities Discovered from Real USGS Intake Data**:
->    - **Photochemical Algal Bloom pH Shifts ($\text{pH} > 8.5$)**: Live telemetry from the Maumee River revealed summer cyanobacterial blooms driving pH as high as $9.30$. Under such basic conditions, aluminum hydrolyzes into soluble aluminate ($\text{Al(OH)}_4^-$), rendering additional alum dosing chemically ineffective and risking dissolved aluminum breakthrough. Real plants require dual-chemical acid dosing ($\text{H}_2\text{SO}_4$/$\text{CO}_2$) to depress pH before coagulation.
->    - **Sensor Uncertainty Scaling During Flash Floods**: Under EPA Method 180.1 optical turbidimeter physics, sensor tolerance scales proportionally ($\pm 10\%$). During a $208\text{ NTU}$ storm spike, sensor uncertainty expands to $\pm 20.8\text{ NTU}$ ($7\times$ wider than synthetic assumptions), causing interval arithmetic to become excessively conservative without coagulant aid polymers or flow throttling.
->    - **Dynamic Hydraulic Residence Time**: Real sedimentation clarifiers have a $2 - 4\text{ hour}$ hydraulic detention delay that hydrodynamically dampens 15-minute intake spikes; the static reachability engine currently treats each reading as an instantaneous steady-state equilibrium.
+>    - **Photochemical Algal Bloom pH Shifts ($\text{pH} > 8.5$)**: Live telemetry from the Maumee River revealed summer cyanobacterial blooms driving pH as high as $9.30$. Under such basic conditions, aluminum hydrolyzes into soluble aluminate ($\text{Al(OH)}_4^-$), rendering additional alum dosing chemically ineffective and risking dissolved aluminum breakthrough. In v0.4.0, the reachability engine explicitly scopes single-chemical alum coagulation to $\text{pH} \in [5.0, 8.0]$ and refuses certification (`OUTSIDE_MODEL_VALIDITY`) when $\text{pH} > 8.5$, advising acid pre-treatment ($\text{H}_2\text{SO}_4$/$\text{CO}_2$).
+>    - **Sensor Uncertainty Scaling During Flash Floods**: Under EPA Method 180.1 optical turbidimeter physics, sensor tolerance is validated for $0 - 40\text{ NTU}$, while high turbidity ($> 100\text{ NTU}$) experiences multiple-scattering degradation. In v0.4.0, both flat proportional ($\pm 10\%$) and piecewise EPA-tiered ($5\%/10\%/15\%$) uncertainty models are supported and benchmarked.
+>    - **Dynamic Hydraulic Residence Time**: Real sedimentation clarifiers have a $2 - 4\text{ hour}$ hydraulic detention delay that hydrodynamically dampens 15-minute intake spikes; the static reachability engine currently treats each reading as an instantaneous steady-state equilibrium. Time-delayed reachability over plug flow remains documented future work.
 > 3. **What Remains Illustrative / Unvalidated**:
 >    - **Complex Water Chemistry**: Natural raw water contains varying dissolved organic carbon (DOC), specific UV absorbance (SUVA), alkalinity buffers, and silica interferents that require site-specific jar-test calibration.
 >    - **Actuator & Sensor Latencies**: Physical dosing pumps exhibit mechanical dead-bands, priming delays, and sensor transit pipeline delays that are not modeled.
 > 4. **Not Validated for Real Regulatory Use**: This software is **not** certified, accredited, or approved by the EPA, FDA, or municipal authorities for deployment in actual regulated drinking water utilities, wastewater facilities, or pharmaceutical manufacturing plants.
 > 5. **Non-Goals**: This package does not provide real-time hardware PLC drivers, SCADA/OPC-UA integration, automated regulatory filing compliance, or hardware emergency shutdown interlocks on physical equipment.
+
 

@@ -203,21 +203,55 @@ def check_cmd(
     r_set = result.reachable_set
     exp = result.explain()
 
+    # Choose status color based on outcome
+    if result.status.value == "ACCEPTED":
+        status_color = "green"
+    elif result.status.value == "OUTSIDE_MODEL_VALIDITY":
+        status_color = "red"
+    else:
+        status_color = "yellow"
+
     console.print(
         Panel.fit(
             f"[bold]Candidate Dose:[/bold] {dose:.2f} mg/L\n"
             f"[bold]Influent Turbidity Range:[/bold] [{turb_interval.lo:.1f}, {turb_interval.hi:.1f}] NTU\n"
             f"[bold]Flow Rate Range:[/bold] [{flow_interval.lo:.0f}, {flow_interval.hi:.0f}] m3/h\n"
+            f"[bold]pH Range:[/bold] [{ph_interval.lo:.2f}, {ph_interval.hi:.2f}]\n"
             f"[bold]Compliance Ceiling:[/bold] {limit:.2f} NTU\n\n"
-            f"[bold]Worst-Case Reachable Effluent:[/bold] [{r_set.lo:.3f}, {r_set.hi:.3f}] NTU\n"
-            f"[bold]Certification Status:[/bold] [bold {'green' if result.status == 'ACCEPTED' else 'yellow'}]{result.status.value}[/]\n"
+            f"[bold]Certification Status:[/bold] [bold {status_color}]{result.status.value}[/]\n"
             f"[bold]Certified Output Action:[/bold] {result.certified_dose:.2f} mg/L\n"
-            f"[bold]Safety Margin:[/bold] {exp.safety_margin:+.3f} NTU below compliance limit\n"
-            f"[bold]Binding Constraint:[/bold] {exp.binding_constraint}\n"
-            f"[bold]Reason:[/bold] {result.reason}",
+            f"[bold]Process Model Valid:[/bold] {'[green]Yes[/green]' if result.process_model_valid else '[bold red]NO -- pH outside alum coagulation validity window[/bold red]'}\n"
+            + (
+                f"[bold]Worst-Case Reachable Effluent:[/bold] [{r_set.lo:.3f}, {'inf' if r_set.hi == float('inf') else f'{r_set.hi:.3f}'}] NTU\n"
+                f"[bold]Safety Margin:[/bold] {exp.safety_margin:+.3f} NTU below compliance limit\n"
+                if result.process_model_valid
+                else "[dim]Reachable set computation skipped -- model validity exceeded.[/dim]\n"
+            )
+            + f"[bold]Binding Constraint:[/bold] {exp.binding_constraint}\n"
+            f"[bold]Reason:[/bold] {result.reason[:200]}",
             title="[bold cyan]Reachability Verification Result[/bold cyan]",
         )
     )
+
+    # For OUTSIDE_MODEL_VALIDITY, show a distinct prominent warning panel
+    if result.status.value == "OUTSIDE_MODEL_VALIDITY":
+        console.print(
+            Panel(
+                f"[bold red][!] PROCESS MODEL VALIDITY EXCEEDED [!][/bold red]\n\n"
+                f"[bold]Problem:[/bold] {result.model_validity_reason}\n\n"
+                f"[bold]Why this matters:[/bold] Above pH 8.5, aluminum in alum (Al2(SO4)3) does\n"
+                f"NOT precipitate as insoluble Al(OH)3 floc. Instead, it hydrolyzes into soluble\n"
+                f"aluminate (Al(OH)4-). The model's penalty for high pH demands MORE coagulant,\n"
+                f"but at pH > 8.5 more alum causes dissolved aluminum breakthrough in treated water.\n\n"
+                f"[bold]Required action:[/bold] Acid pre-treatment (H2SO4 or CO2 injection) or\n"
+                f"raw water blending to return pH to the coagulation window [5.0, 8.0] BEFORE\n"
+                f"relying on coagulant dosing.\n\n"
+                f"[dim]The fallback dose {result.certified_dose:.2f} mg/L is applied conservatively,\n"
+                f"but this is NOT a validated treatment response at pH > 8.5.[/dim]",
+                title="[bold red]Single-Chemical Alum Model Validity Exceeded[/bold red]",
+                border_style="red",
+            )
+        )
 
     if exp.sensitivities:
         sens_table = Table(

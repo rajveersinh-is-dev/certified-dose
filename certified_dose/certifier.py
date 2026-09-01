@@ -18,17 +18,38 @@ from typing import Any
 
 from certified_dose.controller import BaseController, PlantState
 from certified_dose.intervals import Interval
+from certified_dose.process_model import PhValidityStatus, SyntheticProcessModel
 from certified_dose.reachability import ReachabilityEngine, ReachableSet
 
 logger = logging.getLogger("certified_dose.certifier")
 
 
 class CertificationStatus(StrEnum):
-    """Outcome status of the formal certification check."""
+    """Outcome status of the formal certification check.
+
+    ACCEPTED: Proposed dose was verified safe within the compliance envelope.
+
+    REJECTED_CORRECTED: Proposed dose violated the compliance envelope; a safe
+        replacement dose was found via bisection search.
+
+    FAILED_SAFE_FALLBACK: Computation failed or timed out; the conservative
+        fallback dose was applied as a fail-safe.
+
+    OUTSIDE_MODEL_VALIDITY: The pH disturbance interval lies outside the
+        valid operating range for the single-chemical alum coagulation model.
+        The model cannot make a trustworthy safety claim at all -- not that
+        there is no safe dose, but that the model's assumptions about aluminum
+        speciation are violated and any certification would be meaningless.
+        This is distinct from FAILED_SAFE_FALLBACK (computational failure)
+        and REJECTED_CORRECTED (correctable dose problem). The correct
+        operator response is acid pre-treatment or pH adjustment to re-enter
+        the alum coagulation window, NOT increasing coagulant dose.
+    """
 
     ACCEPTED = "ACCEPTED"
     REJECTED_CORRECTED = "REJECTED_CORRECTED"
     FAILED_SAFE_FALLBACK = "FAILED_SAFE_FALLBACK"
+    OUTSIDE_MODEL_VALIDITY = "OUTSIDE_MODEL_VALIDITY"
 
 
 @dataclass(frozen=True)
@@ -123,7 +144,8 @@ class CertificationResult:
 
     Attributes:
         certified_dose: The final safe dose to apply (mg/L).
-        status: Certification outcome (ACCEPTED, REJECTED_CORRECTED, FAILED_SAFE_FALLBACK).
+        status: Certification outcome (ACCEPTED, REJECTED_CORRECTED,
+            FAILED_SAFE_FALLBACK, or OUTSIDE_MODEL_VALIDITY).
         proposed_dose: The original candidate dose proposed by the controller.
         reachable_set: Guaranteed output reachable interval [lo, hi] for the certified dose.
         candidate_reachable_set: Guaranteed output interval for the proposed dose (if computed).
@@ -132,6 +154,12 @@ class CertificationResult:
         computation_time_ms: Wall-clock computation duration in milliseconds.
         disturbances: Normalized disturbance intervals evaluated.
         engine: Reference to the reachability engine used.
+        process_model_valid: False when the pH disturbance interval falls outside the
+            physically valid range for the single-chemical alum coagulation model.
+            When False, the certification is OUTSIDE_MODEL_VALIDITY and no reachability
+            claim can be made. Distinct from FAILED_SAFE_FALLBACK (computational error).
+        model_validity_reason: Human-readable explanation of why the model is or is not
+            valid at the evaluated operating point.
     """
 
     certified_dose: float
@@ -144,6 +172,8 @@ class CertificationResult:
     computation_time_ms: float
     disturbances: Mapping[str, Interval] | None = None
     engine: ReachabilityEngine | None = None
+    process_model_valid: bool = True
+    model_validity_reason: str = ""
 
     @property
     def was_intervened(self) -> bool:
@@ -215,6 +245,14 @@ class CertificationResult:
                 top_var = sensitivities[0].variable
                 top_pct = sensitivities[0].relative_contribution_pct
 
+        # For OUTSIDE_MODEL_VALIDITY, override binding constraint to explain the chemistry
+        if self.status == CertificationStatus.OUTSIDE_MODEL_VALIDITY:
+            binding = (
+                f"Process model validity failure -- single-chemical alum coagulation model "
+                f"requires pH in [5.0, 8.0]. {self.model_validity_reason} "
+                f"The model cannot make a trustworthy claim at this pH."
+            )
+
         # Operator guidance
         if self.status == CertificationStatus.ACCEPTED:
             guidance = (
@@ -230,6 +268,18 @@ class CertificationResult:
                 )
             else:
                 guidance = f"Candidate dose rejected. Corrected to certified safe setpoint {self.certified_dose:.2f} mg/L."
+        elif self.status == CertificationStatus.OUTSIDE_MODEL_VALIDITY:
+            guidance = (
+                f"PROCESS MODEL VALIDITY EXCEEDED -- No certification possible. "
+                f"{self.model_validity_reason} "
+                f"At this pH, aluminum hydrolyzes into soluble aluminate Al(OH)4- rather than "
+                f"precipitating as Al(OH)3. Increasing the coagulant dose will worsen dissolved "
+                f"aluminum breakthrough, not improve turbidity removal. "
+                f"Required operator action: acid pre-treatment (H2SO4 or CO2 injection) or "
+                f"raw water blending to lower pH back into the alum coagulation window [5.0, 8.0] "
+                f"before relying on coagulant dosing. The fallback dose {self.certified_dose:.2f} mg/L "
+                f"is applied conservatively but is NOT a validated treatment response at this pH."
+            )
         else:  # FAILED_SAFE_FALLBACK
             guidance = (
                 f"Emergency fail-safe activated ({self.certified_dose:.2f} mg/L). "
@@ -388,6 +438,82 @@ class CertifiedDoseWrapper:
                     elapsed_ms=(time.perf_counter() - start_time) * 1000.0,
                     candidate_set=None,
                 )
+
+            # 1.5 Check pH validity window for single-chemical alum coagulation model.
+            # This must happen BEFORE computing the reachable set because if the pH
+            # interval is in the aluminate-dominant regime (> 8.5), the process model's
+            # phi_pH penalty is qualitatively backwards: more alum at pH 9.3 causes
+            # dissolved aluminum breakthrough, not better turbidity removal. Any
+            # certification issued in this regime would be misleading, not just
+            # conservative. We refuse to certify and return OUTSIDE_MODEL_VALIDITY.
+            if "ph" in disturbances:
+                ph_input = disturbances["ph"]
+                if isinstance(self.engine.model, SyntheticProcessModel):
+                    ph_validity = self.engine.model.check_ph_validity(ph_input)
+                    if ph_validity == PhValidityStatus.OUT_OF_RANGE:
+                        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+                        ph_lo = (
+                            ph_input.lo
+                            if isinstance(ph_input, Interval)
+                            else float(ph_input)
+                        )
+                        ph_hi = (
+                            ph_input.hi
+                            if isinstance(ph_input, Interval)
+                            else float(ph_input)
+                        )
+                        validity_reason = (
+                            f"pH interval [{ph_lo:.2f}, {ph_hi:.2f}] exceeds the alum "
+                            f"coagulation validity window [5.0, 8.0] (out-of-range boundary: 8.5). "
+                            f"Above pH 8.5, aluminum speciation shifts to soluble aluminate "
+                            f"Al(OH)4- and the model phi_pH penalty is qualitatively incorrect."
+                        )
+                        logger.warning(
+                            "pH interval [%.2f, %.2f] outside model validity. "
+                            "Returning OUTSIDE_MODEL_VALIDITY.",
+                            ph_lo,
+                            ph_hi,
+                        )
+                        # Build a placeholder ReachableSet using fallback dose for consistent API
+                        placeholder_set = ReachableSet(
+                            lo=0.0,
+                            hi=float("inf"),
+                            dose=self.fallback_dose,
+                            disturbances={
+                                k: (
+                                    v
+                                    if isinstance(v, Interval)
+                                    else Interval(float(v), float(v))
+                                )
+                                for k, v in disturbances.items()
+                            },
+                            safety_margin=self.engine.safety_margin,
+                        )
+                        return CertificationResult(
+                            certified_dose=self.fallback_dose,
+                            status=CertificationStatus.OUTSIDE_MODEL_VALIDITY,
+                            proposed_dose=proposed_dose,
+                            reachable_set=placeholder_set,
+                            candidate_reachable_set=None,
+                            compliance_limit=self.compliance_limit,
+                            reason=(
+                                f"pH out of model validity range. {validity_reason} "
+                                f"Fallback dose {self.fallback_dose:.2f} mg/L applied conservatively "
+                                f"but is NOT a validated treatment response at this pH."
+                            ),
+                            computation_time_ms=elapsed_ms,
+                            disturbances={
+                                k: (
+                                    v
+                                    if isinstance(v, Interval)
+                                    else Interval(float(v), float(v))
+                                )
+                                for k, v in disturbances.items()
+                            },
+                            engine=self.engine,
+                            process_model_valid=False,
+                            model_validity_reason=validity_reason,
+                        )
 
             # 2. Compute reachable set for proposed dose
             candidate_reachable = self.engine.compute_reachable_set(

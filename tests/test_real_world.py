@@ -134,5 +134,10 @@ def test_evaluate_dataset_on_pipeline() -> None:
 
     heur = report["heuristic_controller"]
     assert (
-        heur["accepted_count"] + heur["corrected_count"] + heur["fallback_count"] == 5
+        heur["accepted_count"]
+        + heur["corrected_count"]
+        + heur["outside_validity_count"]
+        + heur["fallback_count"]
+        == 5
     )
+    assert heur["outside_validity_count"] == 3

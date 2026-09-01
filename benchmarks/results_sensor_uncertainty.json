@@ -1,0 +1,174 @@
+{
+  "04193500": {
+    "proportional_5pct": {
+      "heuristic": {
+        "accepted_count": 2008,
+        "accepted_pct": 70.16,
+        "corrected_count": 0,
+        "corrected_pct": 0.0,
+        "outside_validity_count": 854,
+        "outside_validity_pct": 29.84,
+        "chemical_overhead_pct": 2.9,
+        "mean_applied_dose": 18.62
+      },
+      "aggressive": {
+        "accepted_count": 2001,
+        "accepted_pct": 69.92,
+        "corrected_count": 7,
+        "corrected_pct": 0.24,
+        "outside_validity_count": 854,
+        "outside_validity_pct": 29.84,
+        "mean_applied_dose": 17.99
+      }
+    },
+    "proportional_10pct_default": {
+      "heuristic": {
+        "accepted_count": 2003,
+        "accepted_pct": 69.99,
+        "corrected_count": 5,
+        "corrected_pct": 0.17,
+        "outside_validity_count": 854,
+        "outside_validity_pct": 29.84,
+        "chemical_overhead_pct": 2.9,
+        "mean_applied_dose": 18.62
+      },
+      "aggressive": {
+        "accepted_count": 1829,
+        "accepted_pct": 63.91,
+        "corrected_count": 179,
+        "corrected_pct": 6.25,
+        "outside_validity_count": 854,
+        "outside_validity_pct": 29.84,
+        "mean_applied_dose": 18.02
+      }
+    },
+    "proportional_15pct": {
+      "heuristic": {
+        "accepted_count": 1970,
+        "accepted_pct": 68.83,
+        "corrected_count": 38,
+        "corrected_pct": 1.33,
+        "outside_validity_count": 854,
+        "outside_validity_pct": 29.84,
+        "chemical_overhead_pct": 2.91,
+        "mean_applied_dose": 18.62
+      },
+      "aggressive": {
+        "accepted_count": 1591,
+        "accepted_pct": 55.59,
+        "corrected_count": 417,
+        "corrected_pct": 14.57,
+        "outside_validity_count": 854,
+        "outside_validity_pct": 29.84,
+        "mean_applied_dose": 18.09
+      }
+    },
+    "piecewise_epa_range": {
+      "heuristic": {
+        "accepted_count": 2002,
+        "accepted_pct": 69.95,
+        "corrected_count": 6,
+        "corrected_pct": 0.21,
+        "outside_validity_count": 854,
+        "outside_validity_pct": 29.84,
+        "chemical_overhead_pct": 2.9,
+        "mean_applied_dose": 18.62
+      },
+      "aggressive": {
+        "accepted_count": 1798,
+        "accepted_pct": 62.82,
+        "corrected_count": 210,
+        "corrected_pct": 7.34,
+        "outside_validity_count": 854,
+        "outside_validity_pct": 29.84,
+        "mean_applied_dose": 18.08
+      }
+    }
+  },
+  "01184000": {
+    "proportional_5pct": {
+      "heuristic": {
+        "accepted_count": 2616,
+        "accepted_pct": 91.31,
+        "corrected_count": 0,
+        "corrected_pct": 0.0,
+        "outside_validity_count": 249,
+        "outside_validity_pct": 8.69,
+        "chemical_overhead_pct": 39.97,
+        "mean_applied_dose": 3.82
+      },
+      "aggressive": {
+        "accepted_count": 2616,
+        "accepted_pct": 91.31,
+        "corrected_count": 0,
+        "corrected_pct": 0.0,
+        "outside_validity_count": 249,
+        "outside_validity_pct": 8.69,
+        "mean_applied_dose": 4.0
+      }
+    },
+    "proportional_10pct_default": {
+      "heuristic": {
+        "accepted_count": 2616,
+        "accepted_pct": 91.31,
+        "corrected_count": 0,
+        "corrected_pct": 0.0,
+        "outside_validity_count": 249,
+        "outside_validity_pct": 8.69,
+        "chemical_overhead_pct": 39.97,
+        "mean_applied_dose": 3.82
+      },
+      "aggressive": {
+        "accepted_count": 2616,
+        "accepted_pct": 91.31,
+        "corrected_count": 0,
+        "corrected_pct": 0.0,
+        "outside_validity_count": 249,
+        "outside_validity_pct": 8.69,
+        "mean_applied_dose": 4.0
+      }
+    },
+    "proportional_15pct": {
+      "heuristic": {
+        "accepted_count": 2616,
+        "accepted_pct": 91.31,
+        "corrected_count": 0,
+        "corrected_pct": 0.0,
+        "outside_validity_count": 249,
+        "outside_validity_pct": 8.69,
+        "chemical_overhead_pct": 39.97,
+        "mean_applied_dose": 3.82
+      },
+      "aggressive": {
+        "accepted_count": 2616,
+        "accepted_pct": 91.31,
+        "corrected_count": 0,
+        "corrected_pct": 0.0,
+        "outside_validity_count": 249,
+        "outside_validity_pct": 8.69,
+        "mean_applied_dose": 4.0
+      }
+    },
+    "piecewise_epa_range": {
+      "heuristic": {
+        "accepted_count": 2616,
+        "accepted_pct": 91.31,
+        "corrected_count": 0,
+        "corrected_pct": 0.0,
+        "outside_validity_count": 249,
+        "outside_validity_pct": 8.69,
+        "chemical_overhead_pct": 39.97,
+        "mean_applied_dose": 3.82
+      },
+      "aggressive": {
+        "accepted_count": 2616,
+        "accepted_pct": 91.31,
+        "corrected_count": 0,
+        "corrected_pct": 0.0,
+        "outside_validity_count": 249,
+        "outside_validity_pct": 8.69,
+        "mean_applied_dose": 4.0
+      }
+    }
+  }
+}

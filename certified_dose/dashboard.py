@@ -361,7 +361,7 @@ def main() -> None:
             insp_turb = st.slider("Raw Influent Turbidity (NTU)", 10.0, 80.0, 32.0, 1.0)
             insp_flow = st.slider("Flow Rate (m3/h)", 600.0, 1500.0, 1050.0, 25.0)
         with i_col2:
-            insp_ph = st.slider("pH", 6.5, 8.5, 7.3, 0.1)
+            insp_ph = st.slider("pH", 4.5, 10.0, 7.3, 0.1)
             insp_temp = st.slider("Temperature (°C)", 5.0, 28.0, 16.0, 1.0)
 
         insp_dose = st.slider("Candidate Coagulant Dose (mg/L)", 2.0, 60.0, 16.0, 0.5)
@@ -377,45 +377,63 @@ def main() -> None:
         cert_res = certifier.certify_action(insp_dose, dist_intervals)
         reach_set = cert_res.reachable_set
 
-        status_badge = (
-            "✅ **ACCEPTED (CERTIFIED SAFE)**"
-            if cert_res.status == "ACCEPTED"
-            else f"⚠️ **REJECTED & CORRECTED TO {cert_res.certified_dose:.2f} mg/L**"
-        )
-        st.markdown(f"### Verdict: {status_badge}")
-        st.info(cert_res.reason)
-
-        # Plot Reachable Set Bar
-        fig_bar = go.Figure()
-        fig_bar.add_trace(
-            go.Bar(
-                name="Reachable Set",
-                x=[reach_set.hi - reach_set.lo],
-                y=["Effluent Turbidity"],
-                base=[reach_set.lo],
-                orientation="h",
-                marker={
-                    "color": (
-                        "#28a745"
-                        if reach_set.hi <= params["compliance_limit"]
-                        else "#dc3545"
-                    )
-                },
+        if cert_res.status == "ACCEPTED":
+            status_badge = "✅ **ACCEPTED (CERTIFIED SAFE)**"
+            st.markdown(f"### Verdict: {status_badge}")
+            st.info(cert_res.reason)
+        elif cert_res.status == "OUTSIDE_MODEL_VALIDITY":
+            status_badge = "🚫 **OUTSIDE MODEL VALIDITY (CERTIFICATION REFUSED)**"
+            st.markdown(f"### Verdict: {status_badge}")
+            st.error(
+                f"**⚠️ PROCESS MODEL VALIDITY EXCEEDED**\n\n"
+                f"{cert_res.model_validity_reason}\n\n"
+                f"At pH {insp_ph:.1f}, aluminum speciation shifts to soluble aluminate Al(OH)₄⁻. "
+                f"Single-chemical alum dosing cannot form effective floc and more alum causes "
+                f"dissolved aluminum breakthrough. Acid pre-treatment or blending is required."
             )
-        )
-        fig_bar.add_vline(
-            x=params["compliance_limit"],
-            line={"color": "red", "width": 3, "dash": "dash"},
-            annotation_text=f"Compliance Limit ({params['compliance_limit']} NTU)",
-        )
-        fig_bar.update_layout(
-            title=f"Worst-Case Reachable Effluent: [{reach_set.lo:.3f}, {reach_set.hi:.3f}] NTU",
-            xaxis_title="Effluent Turbidity (NTU)",
-            yaxis_visible=False,
-            height=220,
-            margin={"l": 20, "r": 20, "t": 40, "b": 20},
-        )
-        st.plotly_chart(fig_bar, use_container_width=True)
+        else:
+            status_badge = (
+                f"⚠️ **REJECTED & CORRECTED TO {cert_res.certified_dose:.2f} mg/L**"
+            )
+            st.markdown(f"### Verdict: {status_badge}")
+            st.info(cert_res.reason)
+
+        # Plot Reachable Set Bar (only if model is valid)
+        if cert_res.process_model_valid and reach_set.hi != float("inf"):
+            fig_bar = go.Figure()
+            fig_bar.add_trace(
+                go.Bar(
+                    name="Reachable Set",
+                    x=[reach_set.hi - reach_set.lo],
+                    y=["Effluent Turbidity"],
+                    base=[reach_set.lo],
+                    orientation="h",
+                    marker={
+                        "color": (
+                            "#28a745"
+                            if reach_set.hi <= params["compliance_limit"]
+                            else "#dc3545"
+                        )
+                    },
+                )
+            )
+            fig_bar.add_vline(
+                x=params["compliance_limit"],
+                line={"color": "red", "width": 3, "dash": "dash"},
+                annotation_text=f"Compliance Limit ({params['compliance_limit']} NTU)",
+            )
+            fig_bar.update_layout(
+                title=f"Worst-Case Reachable Effluent: [{reach_set.lo:.3f}, {reach_set.hi:.3f}] NTU",
+                xaxis_title="Effluent Turbidity (NTU)",
+                yaxis_visible=False,
+                height=220,
+                margin={"l": 20, "r": 20, "t": 40, "b": 20},
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
+        else:
+            st.warning(
+                "Reachable set interval computation bypassed: Operating point outside valid model regime."
+            )
 
         # Operator Explainability and Sensitivity Attribution
         exp = cert_res.explain()

@@ -1,4 +1,4 @@
-"""certified-dose: Formal reachability-analysis safety layer for chemical dosing.
+﻿"""certified-dose: Formal reachability-analysis safety layer for chemical dosing.
 
 Every dosing action is provably guaranteed to keep the process output within a
 regulatory compliance envelope under bounded input uncertainty.
@@ -23,6 +23,7 @@ from certified_dose.controller import (
 from certified_dose.intervals import AffineForm, Interval
 from certified_dose.process_model import (
     ModelParameters,
+    PhValidityStatus,
     ProcessModel,
     SyntheticProcessModel,
 )
@@ -31,6 +32,7 @@ from certified_dose.real_world import (
     InstrumentUncertaintySpecs,
     RealWorldDataset,
     RealWorldRecord,
+    TurbidityUncertaintyModel,
     derive_disturbance_intervals,
 )
 from certified_dose.simulate import (
@@ -49,7 +51,7 @@ from certified_dose.validation import (
     validate_synthetic_model,
 )
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     "__version__",
@@ -57,6 +59,7 @@ __all__ = [
     "AffineForm",
     "ProcessModel",
     "ModelParameters",
+    "PhValidityStatus",
     "SyntheticProcessModel",
     "ReachabilityEngine",
     "ReachableSet",
@@ -86,5 +89,6 @@ __all__ = [
     "RealWorldRecord",
     "RealWorldDataset",
     "InstrumentUncertaintySpecs",
+    "TurbidityUncertaintyModel",
     "derive_disturbance_intervals",
 ]
