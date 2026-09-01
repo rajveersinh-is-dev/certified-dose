@@ -48,6 +48,8 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+*.sqlite
+.cosmic-ray/
 
 # Jupyter Notebook
 .ipynb_checkpoints

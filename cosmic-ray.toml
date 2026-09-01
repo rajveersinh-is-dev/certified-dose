@@ -1,0 +1,8 @@
+[cosmic-ray]
+module-path = "certified_dose/intervals.py"
+python-version = "3.12"
+timeout = 10.0
+test-command = ".venv/Scripts/pytest.exe tests/test_intervals.py tests/test_adversarial.py -q -p no:cov -o console_output_style=classic"
+
+[cosmic-ray.distributor]
+name = "local"
