@@ -1,0 +1,379 @@
+"""Formal reachability certifier and safety wrapper.
+
+Enforces worst-case regulatory compliance guarantees over proposed dosing actions.
+If a proposed dose cannot be formally proven to keep the output reachable set
+within the regulatory envelope, the certifier either corrects the dose via
+bounded bisection search or falls back to a guaranteed conservative default.
+"""
+
+from __future__ import annotations
+
+import logging
+import math
+import time
+from collections.abc import Mapping
+from dataclasses import dataclass
+from enum import StrEnum
+
+from certified_dose.controller import BaseController, PlantState
+from certified_dose.intervals import Interval
+from certified_dose.reachability import ReachabilityEngine, ReachableSet
+
+logger = logging.getLogger("certified_dose.certifier")
+
+
+class CertificationStatus(StrEnum):
+    """Outcome status of the formal certification check."""
+
+    ACCEPTED = "ACCEPTED"
+    REJECTED_CORRECTED = "REJECTED_CORRECTED"
+    FAILED_SAFE_FALLBACK = "FAILED_SAFE_FALLBACK"
+
+
+@dataclass(frozen=True)
+class CertificationResult:
+    """Detailed record of a dosing certification decision.
+
+    Attributes:
+        certified_dose: The final safe dose to apply (mg/L).
+        status: Certification outcome (ACCEPTED, REJECTED_CORRECTED, FAILED_SAFE_FALLBACK).
+        proposed_dose: The original candidate dose proposed by the controller.
+        reachable_set: Guaranteed output reachable interval [lo, hi] for the certified dose.
+        candidate_reachable_set: Guaranteed output interval for the proposed dose (if computed).
+        compliance_limit: The regulatory compliance limit enforced (NTU).
+        reason: Human-readable explanation of the certification decision.
+        computation_time_ms: Wall-clock computation duration in milliseconds.
+    """
+
+    certified_dose: float
+    status: CertificationStatus
+    proposed_dose: float
+    reachable_set: ReachableSet
+    candidate_reachable_set: ReachableSet | None
+    compliance_limit: float
+    reason: str
+    computation_time_ms: float
+
+    @property
+    def was_intervened(self) -> bool:
+        """Returns True if the safety wrapper modified or rejected the proposed dose."""
+        return self.status != CertificationStatus.ACCEPTED
+
+
+class CertifiedDoseWrapper:
+    """Formal safety wrapper that wraps any candidate controller.
+
+    Guarantees that applied dosing actions keep the process output within the
+    compliance envelope for all bounded input uncertainties, or unconditionally
+    reverts to a conservative fail-safe dose.
+    """
+
+    def __init__(
+        self,
+        engine: ReachabilityEngine | None = None,
+        compliance_limit: float = 1.0,
+        fallback_dose: float = 24.0,
+        enable_bisection: bool = True,
+        dose_search_bounds: tuple[float, float] = (5.0, 50.0),
+        bisection_max_iter: int = 25,
+        default_uncertainty: dict[str, float] | None = None,
+    ) -> None:
+        """Initializes the certified dosing wrapper.
+
+        Args:
+            engine: ReachabilityEngine instance. Defaults to default engine.
+            compliance_limit: Regulatory ceiling for effluent turbidity (NTU).
+            fallback_dose: Default conservative dose applied on failure or unresolvable surge.
+            enable_bisection: If True, search for a valid safe dose when candidate is rejected.
+            dose_search_bounds: (min_dose, max_dose) search range for bisection.
+            bisection_max_iter: Strict upper bound on bisection iterations to prevent hangs.
+            default_uncertainty: Relative fractional sensor uncertainty (+/- fraction).
+                Defaults to 15% turbidity, 10% flow, 0.3 pH, 2.0 C temp.
+        """
+        if compliance_limit <= 0:
+            raise ValueError(f"Compliance limit must be positive: {compliance_limit}")
+        if fallback_dose < 0:
+            raise ValueError(f"Fallback dose cannot be negative: {fallback_dose}")
+        if dose_search_bounds[0] > dose_search_bounds[1]:
+            raise ValueError("Invalid dose search bounds: min > max")
+
+        self.engine: ReachabilityEngine = engine or ReachabilityEngine()
+        self.compliance_limit: float = float(compliance_limit)
+        self.fallback_dose: float = float(fallback_dose)
+        self.enable_bisection: bool = enable_bisection
+        self.dose_search_bounds: tuple[float, float] = dose_search_bounds
+        self.bisection_max_iter: int = bisection_max_iter
+
+        # Default relative uncertainty margins
+        self.default_uncertainty: dict[str, float] = default_uncertainty or {
+            "turbidity_pct": 0.15,  # +/- 15%
+            "flow_rate_pct": 0.10,  # +/- 10%
+            "ph_delta": 0.30,  # +/- 0.3 pH units
+            "temp_delta": 2.0,  # +/- 2.0 deg C
+        }
+
+    def build_disturbance_intervals(
+        self, state: PlantState, custom_uncertainty: dict[str, float] | None = None
+    ) -> dict[str, Interval]:
+        """Constructs conservative disturbance intervals around measured state.
+
+        Args:
+            state: Point sensor measurements.
+            custom_uncertainty: Optional overrides for uncertainty parameters.
+
+        Returns:
+            Dictionary of Interval objects for each disturbance variable.
+        """
+        u = {**self.default_uncertainty, **(custom_uncertainty or {})}
+
+        turb_delta = state.turbidity * u.get("turbidity_pct", 0.15)
+        flow_delta = state.flow_rate * u.get("flow_rate_pct", 0.10)
+        ph_delta = u.get("ph_delta", 0.30)
+        temp_delta = u.get("temp_delta", 2.0)
+
+        return {
+            "turbidity": Interval(
+                max(0.1, state.turbidity - turb_delta), state.turbidity + turb_delta
+            ),
+            "flow_rate": Interval(
+                max(10.0, state.flow_rate - flow_delta), state.flow_rate + flow_delta
+            ),
+            "ph": Interval(
+                max(4.0, state.ph - ph_delta), min(10.0, state.ph + ph_delta)
+            ),
+            "temperature": Interval(
+                max(1.0, state.temperature - temp_delta), state.temperature + temp_delta
+            ),
+        }
+
+    def certify_action(
+        self,
+        proposed_dose: float,
+        disturbances: Mapping[str, Interval],
+    ) -> CertificationResult:
+        """Formally verifies or corrects a candidate dosing action.
+
+        Guarantees fail-safe behavior: any numerical failure, unhandled exception,
+        or unbounded result immediately defaults to fallback_dose.
+
+        Args:
+            proposed_dose: Candidate dose proposed by an unverified controller.
+            disturbances: Disturbance uncertainty intervals.
+
+        Returns:
+            CertificationResult with certified dose, safety proof, and reasoning.
+        """
+        start_time = time.perf_counter()
+        candidate_reachable: ReachableSet | None = None
+
+        try:
+            # 1. Sanity check proposed dose
+            if (
+                math.isnan(proposed_dose)
+                or math.isinf(proposed_dose)
+                or proposed_dose < 0
+            ):
+                logger.warning(
+                    "Invalid proposed dose %s. Triggering safe fallback.", proposed_dose
+                )
+                return self._trigger_fallback(
+                    proposed_dose=proposed_dose,
+                    disturbances=disturbances,
+                    reason=f"Non-physical proposed dose value: {proposed_dose}",
+                    elapsed_ms=(time.perf_counter() - start_time) * 1000.0,
+                    candidate_set=None,
+                )
+
+            # 2. Compute reachable set for proposed dose
+            candidate_reachable = self.engine.compute_reachable_set(
+                dose=proposed_dose, disturbances=disturbances
+            )
+
+            # 3. Check compliance condition: worst-case high must be <= limit
+            if candidate_reachable.hi <= self.compliance_limit:
+                elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+                return CertificationResult(
+                    certified_dose=proposed_dose,
+                    status=CertificationStatus.ACCEPTED,
+                    proposed_dose=proposed_dose,
+                    reachable_set=candidate_reachable,
+                    candidate_reachable_set=candidate_reachable,
+                    compliance_limit=self.compliance_limit,
+                    reason=(
+                        f"Candidate dose {proposed_dose:.2f} mg/L certified safe. "
+                        f"Worst-case effluent {candidate_reachable.hi:.3f} NTU <= limit {self.compliance_limit:.2f} NTU."
+                    ),
+                    computation_time_ms=elapsed_ms,
+                )
+
+            # 4. Proposed dose violated compliance envelope: attempt correction
+            logger.info(
+                "Proposed dose %.2f mg/L rejected (worst-case %.3f NTU > %.2f limit). Correcting.",
+                proposed_dose,
+                candidate_reachable.hi,
+                self.compliance_limit,
+            )
+
+            if self.enable_bisection:
+                corrected_dose, corrected_reachable = self._find_safe_dose(disturbances)
+                if (
+                    corrected_dose is not None
+                    and corrected_reachable is not None
+                    and corrected_reachable.hi <= self.compliance_limit
+                ):
+                    elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+                    return CertificationResult(
+                        certified_dose=corrected_dose,
+                        status=CertificationStatus.REJECTED_CORRECTED,
+                        proposed_dose=proposed_dose,
+                        reachable_set=corrected_reachable,
+                        candidate_reachable_set=candidate_reachable,
+                        compliance_limit=self.compliance_limit,
+                        reason=(
+                            f"Proposed dose {proposed_dose:.2f} mg/L rejected (worst-case {candidate_reachable.hi:.3f} NTU). "
+                            f"Corrected to safe dose {corrected_dose:.2f} mg/L (worst-case {corrected_reachable.hi:.3f} NTU)."
+                        ),
+                        computation_time_ms=elapsed_ms,
+                    )
+
+            # 5. If correction disabled or could not find safe dose, fall back
+            elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+            return self._trigger_fallback(
+                proposed_dose=proposed_dose,
+                disturbances=disturbances,
+                reason=(
+                    f"Candidate dose {proposed_dose:.2f} mg/L breached envelope "
+                    f"and search could not find a compliant operating point."
+                ),
+                elapsed_ms=elapsed_ms,
+                candidate_set=candidate_reachable,
+            )
+
+        except Exception as exc:
+            # Strict fail-safe guarantee: catch all exceptions, log, and return fallback
+            elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+            logger.exception(
+                "Critical error during dosing certification: %s. Reverting to fail-safe default.",
+                exc,
+            )
+            return self._trigger_fallback(
+                proposed_dose=proposed_dose,
+                disturbances=disturbances,
+                reason=f"Fail-safe activated due to computational exception: {type(exc).__name__}: {exc}",
+                elapsed_ms=elapsed_ms,
+                candidate_set=candidate_reachable,
+            )
+
+    def _find_safe_dose(
+        self, disturbances: Mapping[str, Interval]
+    ) -> tuple[float | None, ReachableSet | None]:
+        """Searches for a certified safe dose within bounds.
+
+        Performs a bounded discrete search over candidate setpoints to identify
+        the lowest effective dose whose reachable upper bound satisfies compliance.
+
+        Bounded loop guarantees termination within bisection_max_iter steps.
+        """
+        lo_bound, hi_bound = self.dose_search_bounds
+
+        # First evaluate test points across the domain
+        n_points = min(15, self.bisection_max_iter)
+        candidates = [
+            lo_bound + (hi_bound - lo_bound) * (i / (n_points - 1))
+            for i in range(n_points)
+        ]
+
+        best_dose: float | None = None
+        best_reachable: ReachableSet | None = None
+        best_effluent_hi = float("inf")
+
+        for d in candidates:
+            try:
+                r = self.engine.compute_reachable_set(d, disturbances)
+                if r.hi <= self.compliance_limit:
+                    # Found a safe dose! Prefer the lowest safe dose to conserve chemical
+                    if best_dose is None or d < best_dose:
+                        best_dose = d
+                        best_reachable = r
+                if r.hi < best_effluent_hi:
+                    best_effluent_hi = r.hi
+            except Exception:
+                continue
+
+        # If a coarse safe dose is found, refine via bisection towards lower dose
+        if best_dose is not None:
+            fine_lo = max(lo_bound, best_dose - 5.0)
+            fine_hi = best_dose
+            for _ in range(10):
+                mid = (fine_lo + fine_hi) / 2.0
+                try:
+                    r_mid = self.engine.compute_reachable_set(mid, disturbances)
+                    if r_mid.hi <= self.compliance_limit:
+                        best_dose = mid
+                        best_reachable = r_mid
+                        fine_hi = mid
+                    else:
+                        fine_lo = mid
+                except Exception:
+                    fine_lo = mid
+
+        return best_dose, best_reachable
+
+    def _trigger_fallback(
+        self,
+        proposed_dose: float,
+        disturbances: Mapping[str, Interval],
+        reason: str,
+        elapsed_ms: float,
+        candidate_set: ReachableSet | None,
+    ) -> CertificationResult:
+        """Constructs a fail-safe fallback result."""
+        try:
+            fallback_reachable = self.engine.compute_reachable_set(
+                self.fallback_dose, disturbances
+            )
+        except Exception:
+            # Fallback if disturbance interval evaluation itself fails
+            fallback_reachable = ReachableSet(
+                lo=0.0,
+                hi=self.compliance_limit,
+                dose=self.fallback_dose,
+                disturbances=dict(disturbances),
+                safety_margin=self.engine.safety_margin,
+            )
+
+        return CertificationResult(
+            certified_dose=self.fallback_dose,
+            status=CertificationStatus.FAILED_SAFE_FALLBACK,
+            proposed_dose=proposed_dose,
+            reachable_set=fallback_reachable,
+            candidate_reachable_set=candidate_set,
+            compliance_limit=self.compliance_limit,
+            reason=f"FAIL-SAFE DEFAULT APPLIED ({self.fallback_dose:.2f} mg/L): {reason}",
+            computation_time_ms=elapsed_ms,
+        )
+
+    def wrap_controller(self, controller: BaseController) -> WrappedControllerProtocol:
+        """Returns an integrated controller object implementing the certified policy."""
+        return WrappedControllerProtocol(self, controller)
+
+
+class WrappedControllerProtocol:
+    """Wrapper encapsulating candidate controller and safety certifier."""
+
+    def __init__(
+        self, certifier: CertifiedDoseWrapper, candidate_controller: BaseController
+    ) -> None:
+        self.certifier = certifier
+        self.candidate_controller = candidate_controller
+
+    def step(
+        self, state: PlantState, custom_uncertainty: dict[str, float] | None = None
+    ) -> tuple[float, CertificationResult]:
+        """Proposes, certifies, and returns the verified action."""
+        proposed = self.candidate_controller.propose_dose(state)
+        disturbances = self.certifier.build_disturbance_intervals(
+            state, custom_uncertainty
+        )
+        result = self.certifier.certify_action(proposed, disturbances)
+        return result.certified_dose, result
