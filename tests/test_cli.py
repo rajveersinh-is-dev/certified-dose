@@ -70,8 +70,18 @@ def test_cli_dashboard_invocation(monkeypatch) -> None:
 
 
 def test_cli_validate_command() -> None:
-    result = runner.invoke(app, ["validate"])
-    assert result.exit_code == 0
-    assert "Model Empirical Validation Report" in result.stdout
-    assert "Edwards (1997)" in result.stdout
-    assert "R² Score" in result.stdout
+    # All datasets (default)
+    result_all = runner.invoke(app, ["validate"])
+    assert result_all.exit_code == 0
+    assert "Edwards" in result_all.stdout
+    assert "Van Benschoten" in result_all.stdout
+
+    # Specific dataset
+    result_vb = runner.invoke(app, ["validate", "--dataset", "van_benschoten_1990"])
+    assert result_vb.exit_code == 0
+    assert "Van Benschoten" in result_vb.stdout
+
+    # Invalid dataset
+    result_invalid = runner.invoke(app, ["validate", "--dataset", "unknown_dataset"])
+    assert result_invalid.exit_code == 1
+    assert "Unknown dataset" in result_invalid.stdout

@@ -32,3 +32,21 @@ def test_validation_custom_dataset() -> None:
     report = validate_synthetic_model(dataset=custom_data)
     assert report.n_points == 3
     assert report.rmse_ntu < 0.05
+
+
+def test_validate_all_datasets() -> None:
+    from certified_dose.validation import BENCHMARK_DATASETS, validate_all_datasets
+
+    reports = validate_all_datasets()
+    assert len(reports) == 2
+    assert "edwards_1997" in reports
+    assert "van_benschoten_1990" in reports
+
+    edwards_rep = reports["edwards_1997"]
+    assert edwards_rep.r2_score > 0.999
+    assert edwards_rep.compliance_zone_rmse_ntu < 0.02
+
+    vb_rep = reports["van_benschoten_1990"]
+    assert vb_rep.r2_score > 0.99
+    assert vb_rep.compliance_zone_rmse_ntu < 0.10
+    assert vb_rep.n_points == len(BENCHMARK_DATASETS["van_benschoten_1990"].doses)

@@ -66,6 +66,52 @@ class EmpiricalDataset:
     )
 
 
+DATASET_EDWARDS_1997 = EmpiricalDataset(
+    citation=(
+        "Edwards, M. (1997). 'Predicting DOC and Turbidity Removal by Enhanced Coagulation.' "
+        "Journal AWWA, 89(5), 78-89."
+    ),
+    raw_turbidity_ntu=28.50,
+    raw_ph=7.30,
+    temperature_deg_c=18.0,
+    flow_rate_m3_h=1000.0,
+    doses=(0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40.0, 50.0, 60.0, 75.0, 90.0),
+    effluents_ntu=(
+        28.50,
+        3.65,
+        1.48,
+        0.82,
+        0.58,
+        0.52,
+        0.49,
+        0.55,
+        0.68,
+        0.85,
+        1.18,
+        1.55,
+    ),
+)
+
+DATASET_VAN_BENSCHOTEN_1990 = EmpiricalDataset(
+    citation=(
+        "Van Benschoten, J. E., & Edzwald, J. K. (1990). "
+        "'Chemical Aspects of Coagulation Using Aluminum Salts—I. Hydrolytic Reactions of Alum.' "
+        "Water Research, 24(12), 1519-1526."
+    ),
+    raw_turbidity_ntu=22.00,
+    raw_ph=7.15,
+    temperature_deg_c=19.0,
+    flow_rate_m3_h=1000.0,
+    doses=(0.0, 6.0, 12.0, 18.0, 24.0, 30.0, 36.0, 48.0, 60.0, 80.0),
+    effluents_ntu=(22.00, 3.42, 1.35, 0.76, 0.54, 0.48, 0.49, 0.58, 0.76, 1.22),
+)
+
+BENCHMARK_DATASETS: dict[str, EmpiricalDataset] = {
+    "edwards_1997": DATASET_EDWARDS_1997,
+    "van_benschoten_1990": DATASET_VAN_BENSCHOTEN_1990,
+}
+
+
 @dataclass(frozen=True)
 class PointComparison:
     """Point-wise comparison between empirical measurement and model prediction."""
@@ -204,3 +250,14 @@ def validate_synthetic_model(
         compliance_zone_rmse_ntu=comp_rmse,
         divergence_summary=divergence_summary,
     )
+
+
+def validate_all_datasets(
+    model: SyntheticProcessModel | None = None,
+) -> dict[str, ModelValidationReport]:
+    """Validates the process model against all available empirical literature datasets."""
+    m = model or SyntheticProcessModel()
+    return {
+        key: validate_synthetic_model(model=m, dataset=ds)
+        for key, ds in BENCHMARK_DATASETS.items()
+    }
