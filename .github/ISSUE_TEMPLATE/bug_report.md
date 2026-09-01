@@ -26,7 +26,7 @@ A clear description of what you expected to happen.
 ## Environment Details
 - OS: [e.g. Ubuntu 22.04, Windows 11, macOS 14]
 - Python Version: [e.g. 3.11.8, 3.12.2]
-- `certified-dose` Version: [e.g. 0.2.0]
+- `certified-dose` Version: [e.g. 0.3.0]
 
 ## Additional Context
 Add any other context, stack traces, or screenshots here.
