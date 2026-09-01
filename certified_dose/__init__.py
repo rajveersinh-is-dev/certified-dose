@@ -19,7 +19,11 @@ from certified_dose.controller import (
     PlantState,
 )
 from certified_dose.intervals import AffineForm, Interval
-from certified_dose.process_model import ModelParameters, SyntheticProcessModel
+from certified_dose.process_model import (
+    ModelParameters,
+    ProcessModel,
+    SyntheticProcessModel,
+)
 from certified_dose.reachability import ReachabilityEngine, ReachableSet
 from certified_dose.simulate import (
     ClosedLoopSimulator,
@@ -39,6 +43,7 @@ __all__ = [
     "__version__",
     "Interval",
     "AffineForm",
+    "ProcessModel",
     "ModelParameters",
     "SyntheticProcessModel",
     "ReachabilityEngine",

@@ -15,36 +15,41 @@ from typing import Any
 import numpy as np
 
 from certified_dose.intervals import Interval
-from certified_dose.process_model import SyntheticProcessModel
+from certified_dose.process_model import ProcessModel, SyntheticProcessModel
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class ReachableSet:
-    """Guaranteed reachability envelope for an output variable.
+    """Represents the guaranteed bounding interval of effluent concentration.
 
     Attributes:
-        lo: Minimum reachable output value.
-        hi: Maximum reachable output value (worst-case upper bound).
-        dose: The candidate coagulant dose evaluated.
-        disturbances: The input disturbance intervals used.
-        safety_margin: The applied conservativeness margin.
+        lo: Lower bound of attainable effluent concentration.
+        hi: Worst-case upper bound of attainable effluent concentration.
+        dose: Applied candidate dose.
+        disturbances: Disturbance intervals used for the reachability computation.
+        safety_margin: Additive margin applied for numerical safety.
     """
 
     lo: float
     hi: float
     dose: float
-    disturbances: dict[str, Interval]
+    disturbances: Mapping[str, Interval]
     safety_margin: float
 
     @property
     def interval(self) -> Interval:
-        """Returns the reachable set as an Interval."""
+        """Returns the reachability set as an Interval instance."""
         return Interval(self.lo, self.hi)
 
+    @property
+    def width(self) -> float:
+        """Width of the uncertainty envelope."""
+        return self.hi - self.lo
+
     def contains(self, value: float) -> bool:
-        """Checks if a scalar value is contained in the reachable set."""
+        """Checks if a scalar value is contained within the reachable bounds."""
         return self.lo <= value <= self.hi
 
     def violates_limit(self, limit: float) -> bool:
@@ -62,35 +67,36 @@ class ReachabilityEngine:
 
     def __init__(
         self,
-        model: SyntheticProcessModel | None = None,
+        model: ProcessModel | None = None,
         safety_margin: float = 0.02,
     ) -> None:
         """Initializes the reachability engine.
 
         Args:
             model: Process model instance. Defaults to SyntheticProcessModel().
-            safety_margin: Additive margin (NTU) to widen the reachable set,
+            safety_margin: Additive margin to widen the reachable set,
                 compensating for floating-point rounding and linearization errors.
         """
         if safety_margin < 0:
             raise ValueError(f"Safety margin cannot be negative: {safety_margin}")
-        self.model: SyntheticProcessModel = model or SyntheticProcessModel()
+        self.model: ProcessModel = (
+            model if model is not None else SyntheticProcessModel()
+        )
         self.safety_margin: float = float(safety_margin)
 
     def compute_reachable_set(
         self,
         dose: float,
         disturbances: Mapping[str, Interval | float],
+        compliance_limit: float = 1.0,
     ) -> ReachableSet:
         """Computes the guaranteed reachable set for a given candidate dose.
 
         Args:
-            dose: Proposed coagulant dose (mg/L).
-            disturbances: Mapping containing disturbance intervals or floats:
-                - 'turbidity' (NTU)
-                - 'flow_rate' (m3/h)
-                - 'ph'
-                - 'temperature' (deg C)
+            dose: Proposed chemical or control dose.
+            disturbances: Mapping containing disturbance intervals or floats for each
+                variable specified in self.model.disturbance_names.
+            compliance_limit: Regulatory limit for checking safety.
 
         Returns:
             ReachableSet containing [lo, hi] bounds and metadata.
@@ -99,10 +105,9 @@ class ReachabilityEngine:
             KeyError: If required disturbance variables are missing.
             ValueError: If inputs are invalid or out of physical bounds.
         """
-        required_keys = ("turbidity", "flow_rate", "ph", "temperature")
         normalized: dict[str, Interval] = {}
 
-        for key in required_keys:
+        for key in self.model.disturbance_names:
             if key not in disturbances:
                 raise KeyError(f"Missing required disturbance input: '{key}'")
             val = disturbances[key]
@@ -117,15 +122,11 @@ class ReachabilityEngine:
 
         raw_interval: Interval = self.model.evaluate_interval(
             dose=dose,
-            influent_turbidity=normalized["turbidity"],
-            flow_rate=normalized["flow_rate"],
-            ph=normalized["ph"],
-            temperature=normalized["temperature"],
+            disturbances=normalized,
         )
 
         # Apply safety margin: widen the envelope to guarantee conservativeness
         widened = raw_interval.widen(self.safety_margin)
-        # Effluent turbidity is physically non-negative
         bounded_lo = max(0.0, widened.lo)
         bounded_hi = widened.hi
 
@@ -168,26 +169,17 @@ class ReachabilityEngine:
         rng = np.random.default_rng(seed)
         reachable = self.compute_reachable_set(dose, disturbances)
 
-        t_samples = rng.uniform(
-            disturbances["turbidity"].lo, disturbances["turbidity"].hi, n_samples
-        )
-        q_samples = rng.uniform(
-            disturbances["flow_rate"].lo, disturbances["flow_rate"].hi, n_samples
-        )
-        ph_samples = rng.uniform(
-            disturbances["ph"].lo, disturbances["ph"].hi, n_samples
-        )
-        temp_samples = rng.uniform(
-            disturbances["temperature"].lo, disturbances["temperature"].hi, n_samples
-        )
+        samples: dict[str, np.ndarray] = {
+            key: rng.uniform(disturbances[key].lo, disturbances[key].hi, n_samples)
+            for key in self.model.disturbance_names
+        }
 
         outputs = [
             self.model.evaluate_scalar(
                 dose=dose,
-                influent_turbidity=float(t_samples[i]),
-                flow_rate=float(q_samples[i]),
-                ph=float(ph_samples[i]),
-                temperature=float(temp_samples[i]),
+                disturbances={
+                    key: float(samples[key][i]) for key in self.model.disturbance_names
+                },
             )
             for i in range(n_samples)
         ]
