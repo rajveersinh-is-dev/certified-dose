@@ -12,20 +12,20 @@ where $\Theta$ is the bounded input uncertainty set and $f(d, \theta)$ is the tr
 
 ### 1.1 Interval Inclusion Monotonicity
 
-Let $\mathbb{I}\mathbb{R}$ denote the set of closed, bounded real intervals:
+Let $\mathbb{IR}$ denote the set of closed, bounded real intervals:
 
-$$\mathbb{I}\mathbb{R} = \{ [\underline{x}, \overline{x}] \mid \underline{x}, \overline{x} \in \mathbb{R}, \underline{x} \le \overline{x} \}$$
+$$\mathbb{IR} = \{ [\underline{x}, \overline{x}] \mid \underline{x}, \overline{x} \in \mathbb{R}, \underline{x} \le \overline{x} \}$$
 
-A function $[g]: \mathbb{I}\mathbb{R}^n \to \mathbb{I}\mathbb{R}$ is an **inclusion function** (or interval extension) of a continuous real-valued function $g: \mathbb{R}^n \to \mathbb{R}$ if:
+A function $\left[ g \right] : \mathbb{IR}^n \to \mathbb{IR}$ is an **inclusion function** (or interval extension) of a continuous real-valued function $g: \mathbb{R}^n \to \mathbb{R}$ if:
 
-$$\forall x \in X \subseteq \mathbb{R}^n, \quad g(x) \in [g](X)$$
+$$\forall x \in X \subseteq \mathbb{R}^n, \quad g(x) \in \left[ g \right]\left(X\right)$$
 
 **Theorem 1 (Fundamental Theorem of Interval Arithmetic; Moore, 1966):**
-If a rational function $g(x_1, \dots, x_n)$ is evaluated by replacing all real variables $x_i$ with intervals $X_i$ and all arithmetic operations with their corresponding interval arithmetic operations, the resulting natural interval extension $[g](X_1, \dots, X_n)$ satisfies inclusion monotonicity:
+If a rational function $g(x_1, \dots, x_n)$ is evaluated by replacing all real variables $x_i$ with intervals $X_i$ and all arithmetic operations with their corresponding interval arithmetic operations, the resulting natural interval extension $\left[ g \right]\left(X_1, \dots, X_n\right)$ satisfies inclusion monotonicity:
 
-$$\forall x \in X, \quad g(x) \in [g](X)$$
+$$\forall x \in X, \quad g(x) \in \left[ g \right]\left(X\right)$$
 
-Furthermore, if $X^{(1)} \subseteq X^{(2)}$, then $[g](X^{(1)}) \subseteq [g](X^{(2)})$.
+Furthermore, if $X^{(1)} \subseteq X^{(2)}$, then $\left[ g \right]\left(X^{(1)}\right) \subseteq \left[ g \right]\left(X^{(2)}\right)$.
 
 ### 1.2 Soundness Definition
 
@@ -33,7 +33,7 @@ Let $L_{\text{compliance}} \in \mathbb{R}_{> 0}$ be the statutory maximum permis
 
 $$\text{Certified Safe}(d) \implies \left( \forall \theta \in \Theta, \; f(d, \theta) \le L_{\text{compliance}} \right)$$
 
-If an algorithm certifies an action $d$ whose true output $f(d, \theta^*) > L_{\text{compliance}}$ for some physical realization $\theta^* \in \Theta$, the algorithm is **unsound** (false safety certificate).
+If an algorithm certifies an action $d$ whose true output $f(d, \theta^{\star}) > L_{\text{compliance}}$ for some physical realization $\theta^{\star} \in \Theta$, the algorithm is **unsound** (false safety certificate).
 
 ---
 
@@ -136,7 +136,7 @@ Since $f_1$ is non-decreasing, $\forall x \in X, f_1(x) \le f_1(\overline{x})$.
 Since $f_2$ is non-decreasing, $\forall x \in X, f_2(x) \le f_2(\overline{x})$.
 Summing the inequalities:
 $$\forall x \in X, \quad f_1(x) + f_2(x) \le f_1(\overline{x}) + f_2(\overline{x})$$
-Equality holds at $x^* = \overline{x} \in X$.
+Equality holds at $x^{\star} = \overline{x} \in X$.
 Therefore:
 $$\sup_{x \in X} (f_1(x) + f_2(x)) = f_1(\overline{x}) + f_2(\overline{x})$$
 $\blacksquare$
@@ -166,9 +166,9 @@ In this case, interval arithmetic evaluates:
 
 $$T_{\text{eff}}(D) = T_{\text{rem}}(\underline{d}) + T_{\text{over}}(\overline{d})$$
 
-For any single physical realization $d^* \in D$:
+For any single physical realization $d^{\star} \in D$:
 
-$$T_{\text{rem}}(d^*) + T_{\text{over}}(d^*) \le T_{\text{rem}}(\underline{d}) + T_{\text{over}}(\overline{d}) = \overline{T}_{\text{eff}}$$
+$$T_{\text{rem}}(d^{\star}) + T_{\text{over}}(d^{\star}) \le T_{\text{rem}}(\underline{d}) + T_{\text{over}}(\overline{d}) = \overline{T}_{\text{eff}}$$
 
 Thus, the interval computation is guaranteed to be an **over-approximation** (conservative):
 

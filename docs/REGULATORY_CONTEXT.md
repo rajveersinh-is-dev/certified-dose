@@ -69,7 +69,7 @@ Before any algorithmic safety layer or automated dosing wrapper could be deploye
 
 ```mermaid
 flowchart LR
-    A["certified-dose v0.3.0<br/>(Algorithmic Research)"] --> B["GAMP 5 Category 4/5<br/>Validation (IQ/OQ/PQ)"]
+    A["certified-dose v0.4.0<br/>(Algorithmic Research)"] --> B["GAMP 5 Category 4/5<br/>Validation (IQ/OQ/PQ)"]
     B --> C["21 CFR Part 11 / Annex 11<br/>Audit Trails & Security"]
     C --> D["EPA QA/R-5 / QAPP<br/>Quality Assurance"]
     D --> E["State Primacy Agency<br/>Engineering Review & Permit"]
