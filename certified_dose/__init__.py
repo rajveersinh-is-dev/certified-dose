@@ -8,6 +8,8 @@ from certified_dose.certifier import (
     CertificationResult,
     CertificationStatus,
     CertifiedDoseWrapper,
+    ExplanationReport,
+    SensitivityAttribution,
     WrappedControllerProtocol,
 )
 from certified_dose.controller import (
@@ -61,6 +63,8 @@ __all__ = [
     "CertificationStatus",
     "CertificationResult",
     "CertifiedDoseWrapper",
+    "ExplanationReport",
+    "SensitivityAttribution",
     "WrappedControllerProtocol",
     "SimulationRecord",
     "SimulationSummary",

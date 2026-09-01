@@ -138,6 +138,65 @@ class ReachabilityEngine:
             safety_margin=self.safety_margin,
         )
 
+    def compute_sensitivity_attribution(
+        self,
+        dose: float,
+        disturbances: Mapping[str, Interval | float],
+    ) -> dict[str, tuple[float, float]]:
+        """Computes one-at-a-time (OAT) sensitivity attribution for disturbance variables.
+
+        For each variable, evaluates the output reachability interval width
+        when only that variable is uncertain (all others fixed at their midpoints).
+
+        Args:
+            dose: The dosing setpoint evaluated.
+            disturbances: Input disturbance intervals or scalars.
+
+        Returns:
+            Dictionary mapping variable name to (percentage_contribution, partial_output_width).
+        """
+        normalized: dict[str, Interval] = {}
+        for key in self.model.disturbance_names:
+            if key in disturbances:
+                val = disturbances[key]
+                normalized[key] = (
+                    val
+                    if isinstance(val, Interval)
+                    else Interval(float(val), float(val))
+                )
+            else:
+                normalized[key] = Interval(0.0, 0.0)
+
+        midpoints = {
+            k: Interval((v.lo + v.hi) / 2.0, (v.lo + v.hi) / 2.0)
+            for k, v in normalized.items()
+        }
+
+        widths: dict[str, float] = {}
+        for var_name in self.model.disturbance_names:
+            partial_inputs = dict(midpoints)
+            partial_inputs[var_name] = normalized[var_name]
+            try:
+                raw_interval = self.model.evaluate_interval(
+                    dose=dose, disturbances=partial_inputs
+                )
+                widths[var_name] = max(0.0, float(raw_interval.width))
+            except Exception:
+                widths[var_name] = 0.0
+
+        total_width = sum(widths.values())
+        result: dict[str, tuple[float, float]] = {}
+        n_vars = len(self.model.disturbance_names)
+        for var_name, w in widths.items():
+            pct = (
+                (w / total_width * 100.0)
+                if total_width > 1e-12
+                else (100.0 / max(1, n_vars))
+            )
+            result[var_name] = (pct, w)
+
+        return result
+
     def verify_against_monte_carlo(
         self,
         dose: float,
