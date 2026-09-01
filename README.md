@@ -20,9 +20,9 @@ However, standard ML models provide **no worst-case guarantees**. Under unexpect
 
 ## The Reachability-Analysis Solution
 
-`certified-dose` acts as a formal verification guardrail between any candidate controller and the physical dosing actuators. Given (1) a proposed candidate dose and (2) bounded intervals representing sensor noise and disturbance uncertainty (e.g. influent turbidity $T_{in} \pm 15\%$, flow rate $Q \pm 10\%$, pH, temperature), the certifier propagates these input intervals through a non-linear process model using **rigorous interval arithmetic**.
+`certified-dose` acts as a formal verification guardrail between any candidate controller and the physical dosing actuators. Given (1) a proposed candidate dose and (2) bounded intervals representing sensor noise and disturbance uncertainty (e.g. influent turbidity $`T_{\text{in}} \pm 15\%`$, flow rate $`Q \pm 10\%`$, pH, temperature), the certifier propagates these input intervals through a non-linear process model using **rigorous interval arithmetic**.
 
-The computation determines the **guaranteed reachable set** $[y_{\min}, y_{\max}]$ of effluent contaminant concentrations. If the supremum of the reachable set satisfies the regulatory limit ($y_{\max} \le L_{\text{limit}}$), the candidate action is certified and dispatched. If the reachable set violates the envelope, the certifier rejects the action and falls back to a certified safe dose computed via bisection search or a conservative fail-safe default.
+The computation determines the **guaranteed reachable set** $`[y_{\min}, y_{\max}]`$ of effluent contaminant concentrations. If the supremum of the reachable set satisfies the regulatory limit ($`y_{\max} \le L_{\text{limit}}`$), the candidate action is certified and dispatched. If the reachable set violates the envelope, the certifier rejects the action and falls back to a certified safe dose computed via bisection search or a conservative fail-safe default.
 
 For the complete mathematical inclusion monotonicity proof and dependency analysis, see **[Formal Soundness Proof](docs/SOUNDNESS.md)**. For high-level control methodology, see **[Methodology Guide](docs/methodology.md)**.
 
@@ -145,9 +145,9 @@ certified-dose dashboard --port 8501
 
 The Streamlit dashboard allows operators, engineers, and researchers to explore reachability certification in real time:
 
-- **Live Parameter Controls**: Sliders for sensor uncertainty ($\pm \% T_{in}$, $\pm \% Q$, $\pm \Delta pH$, $\pm \Delta T$) and regulatory limits.
+- **Live Parameter Controls**: Sliders for sensor uncertainty ($\pm 15\% T_{\text{in}}$, $\pm 10\% Q$, $\pm \Delta\text{pH}$, $\pm \Delta T$) and regulatory limits.
 - **Dynamic Simulation View**: Real-time plots comparing candidate dosing vs certified safe dosing.
-- **Reachable Set Envelopes**: Shaded regions showing guaranteed bounds $[y_{\min}, y_{\max}]$ alongside the regulatory threshold line.
+- **Reachable Set Envelopes**: Shaded regions showing guaranteed bounds $`[y_{\min}, y_{\max}]`$ alongside the regulatory threshold line.
 - **Zero Violations Metric**: Visual counter tracking blocked unsafe actions and guaranteed zero compliance breaches.
 - **Interactive Dose Inspector**: Test arbitrary candidate doses and inspect immediate reachability envelopes.
 
@@ -349,7 +349,7 @@ To facilitate independent review by safety auditors, control engineers, and acad
 >
 > 1. **Empirically Validated Steady-State Kinetics**: The steady-state coagulant dose-response curve has been empirically validated against two independent published bench-scale water treatment jar-testing benchmarks (*Edwards 1997, Journal AWWA 89(5):78-89* and *Van Benschoten & Edzwald 1990, Water Research 24(12):1519-1526*), demonstrating $R^2 \ge 0.995$ and compliance-window precision of $\text{RMSE} < 0.10\text{ NTU}$ across $15 - 60\text{ mg/L}$ doses (run `certified-dose validate` to view live diagnostics).
 > 2. **Operational Realities Discovered from Real USGS Intake Data**:
->    - **Photochemical Algal Bloom pH Shifts ($\text{pH} > 8.5$)**: Live telemetry from the Maumee River revealed summer cyanobacterial blooms driving pH as high as $9.30$. Under such basic conditions, aluminum hydrolyzes into soluble aluminate ($\text{Al(OH)}_4^-$), rendering additional alum dosing chemically ineffective and risking dissolved aluminum breakthrough. In v0.4.0, the reachability engine explicitly scopes single-chemical alum coagulation to $\text{pH} \in [5.0, 8.0]$ and refuses certification (`OUTSIDE_MODEL_VALIDITY`) when $\text{pH} > 8.5$, advising acid pre-treatment ($\text{H}_2\text{SO}_4$/$\text{CO}_2$).
+>    - **Photochemical Algal Bloom pH Shifts ($`\text{pH} > 8.5`$)**: Live telemetry from the Maumee River revealed summer cyanobacterial blooms driving pH as high as $9.30$. Under such basic conditions, aluminum hydrolyzes into soluble aluminate ($`\text{Al(OH)}_4^-`$), rendering additional alum dosing chemically ineffective and risking dissolved aluminum breakthrough. In v0.4.0, the reachability engine explicitly scopes single-chemical alum coagulation to $`\text{pH} \in [5.0, 8.0]`$ and refuses certification (`OUTSIDE_MODEL_VALIDITY`) when $`\text{pH} > 8.5`$, advising acid pre-treatment ($`\text{H}_2\text{SO}_4`$/$`\text{CO}_2`$).
 >    - **Sensor Uncertainty Scaling During Flash Floods**: Under EPA Method 180.1 optical turbidimeter physics, sensor tolerance is validated for $0 - 40\text{ NTU}$, while high turbidity ($> 100\text{ NTU}$) experiences multiple-scattering degradation. In v0.4.0, both flat proportional ($\pm 10\%$) and piecewise EPA-tiered ($5\%/10\%/15\%$) uncertainty models are supported and benchmarked.
 >    - **Dynamic Hydraulic Residence Time**: Real sedimentation clarifiers have a $2 - 4\text{ hour}$ hydraulic detention delay that hydrodynamically dampens 15-minute intake spikes; the static reachability engine currently treats each reading as an instantaneous steady-state equilibrium. Time-delayed reachability over plug flow remains documented future work.
 > 3. **What Remains Illustrative / Unvalidated**:

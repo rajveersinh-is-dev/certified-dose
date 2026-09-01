@@ -18,8 +18,8 @@ This document formalizes the execution complexity, deterministic bounds, empiric
 | **Interval Multiplication** | $[\min(P), \max(P)]$ | $\mathcal{O}(1)$ | $\mathcal{O}(1)$ | 4 pairwise products |
 | **Interval Monotonic Powers** | $[\underline{x}^p, \overline{x}^p]$ | $\mathcal{O}(1)$ | $\mathcal{O}(1)$ | Exact endpoint evaluation |
 | **Reachability Forward Pass** | Natural interval evaluation $f(d, \mathbf{I})$ | $\mathcal{O}(K)$ | $\mathcal{O}(1)$ | $K$ process arithmetic ops ($\approx 25$ ops) |
-| **Compliance Enclosure Check** | $\overline{\mathcal{R}} \le L_{\text{limit}}$ | $\mathcal{O}(1)$ | $\mathcal{O}(1)$ | Single float comparison |
-| **Bisection Fallback Search** | Coarse grid + bisection refinement | $\mathcal{O}(N_{\text{iter}} \cdot K)$ | $\mathcal{O}(1)$ | Strictly bounded by $N_{\text{iter}}$ and $T_{\text{cap}}$ |
+| **Compliance Enclosure Check** | $`\overline{\mathcal{R}} \le L_{\text{limit}}`$ | $\mathcal{O}(1)$ | $\mathcal{O}(1)$ | Single float comparison |
+| **Bisection Fallback Search** | Coarse grid + bisection refinement | $`\mathcal{O}(N_{\text{iter}} \cdot K)`$ | $\mathcal{O}(1)$ | Strictly bounded by $`N_{\text{iter}}`$ and $`T_{\text{cap}}`$ |
 
 Because the forward reachability evaluation contains **zero loops, zero dynamic allocations, and zero unbounded recursions**, its computational execution profile is deterministic.
 
@@ -87,7 +87,7 @@ To guarantee that computational delays cannot compromise plant safety:
 
 Industrial process automation runs at varied cycle frequencies depending on physical dynamics:
 
-| System Type | Typical Loop Cycle ($T_{\text{cycle}}$) | `certified-dose` WCET | Margin Factor ($\frac{T_{\text{cycle}}}{\text{WCET}}$) | Feasibility Status |
+| System Type | Typical Loop Cycle ($`T_{\text{cycle}}`$) | `certified-dose` WCET | Margin Factor ($`\frac{T_{\text{cycle}}}{\text{WCET}}`$) | Feasibility Status |
 | :--- | :---: | :---: | :---: | :--- |
 | **Water Coagulation Plant** | $10\,\text{s} - 60\,\text{s}$ | $1.57\,\text{ms}$ | $>6,000\times$ | **Exceptional headroom** |
 | **Wastewater CSTR pH Control** | $1\,\text{s} - 5\,\text{s}$ | $1.57\,\text{ms}$ | $>600\times$ | **Exceptional headroom** |

@@ -45,7 +45,7 @@ They capture the actual physical source water quality conditions entering munici
 ## 3. Instrument Precision & Uncertainty Derivation
 In `certified-dose`, point-in-time sensor readings are converted into bounded uncertainty intervals
 derived from published instrumentation precision specifications (EPA Method 180.1 / ISO 7027):
-- **Turbidity ($T_{\text{in}}$)**: Optical field fouling allowance of $\pm 10\%$ of reading or $\pm 0.5\text{ NTU}$ (whichever is larger).
+- **Turbidity ($`T_{\text{in}}`$)**: Optical field fouling allowance of $\pm 10\%$ of reading or $\pm 0.5\text{ NTU}$ (whichever is larger).
 - **pH**: Glass electrode liquid-junction and buffer drift of $\pm 0.15\text{ pH}$ units.
 - **Temperature ($T$)**: Industrial thermistor tolerance of $\pm 0.5^\circ\text{C}$.
-- **Relative Flow ($Q/Q_{\text{nom}}$)**: Intake flow meter tolerance of $\pm 5.0\%$.
+- **Relative Flow ($`Q/Q_{\text{nom}}`$)**: Intake flow meter tolerance of $\pm 5.0\%$.
