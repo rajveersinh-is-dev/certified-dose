@@ -2,7 +2,7 @@
 
 ## 1. Scope and Purpose
 
-`certified-dose` provides a **formal mathematical reachability layer** for chemical dosing in automated process control. It mathematically guarantees that *given* an input disturbance uncertainty envelope $\Theta = \prod_i [\underline{\theta}_i, \overline{\theta}_i]$ and a kinetic process model $f(d, \theta)$, the worst-case reachable effluent concentration $\sup_{\theta \in \Theta} f(d, \theta)$ will not exceed the regulatory limit $L_{\text{limit}}$.
+`certified-dose` provides a **formal mathematical reachability layer** for chemical dosing in automated process control. It mathematically guarantees that *given* an input disturbance uncertainty envelope $`\Theta = \prod_i [\underline{\theta}_i, \overline{\theta}_i]`$ and a kinetic process model $f(d, \theta)$, the worst-case reachable effluent concentration $`\sup_{\theta \in \Theta} f(d, \theta)`$ will not exceed the regulatory limit $`L_{\text{limit}}`$.
 
 However, **mathematical proofs are conditional on physical and systemic axioms**. If the assumptions underlying the proof are violated in the physical plant, the safety certificate becomes invalid.
 
@@ -56,18 +56,29 @@ flowchart TD
 The mathematical safety guarantees of `certified-dose` rest on five core assumptions:
 
 ### Assumption 1: Sensor Interval Inclosure
-**Assumption**: The true, instantaneous physical disturbance state $\theta^{\star} = (T_{\text{in}}^{\star}, Q^{\star}, \text{pH}^{\star}, T^{\star})$ is strictly contained within the interval bounds passed to the certifier:
-$$\theta^{\star} \in [\underline{\theta}, \overline{\theta}]$$
+**Assumption**: The true, instantaneous physical disturbance state $`\theta^{\star} = (T_{\text{in}}^{\star}, Q^{\star}, \text{pH}^{\star}, T^{\star})`$ is strictly contained within the interval bounds passed to the certifier:
+
+$$
+\theta^{\star} \in [\underline{\theta}, \overline{\theta}]
+$$
+
 The certifier assumes that sensor calibration bounds (e.g. measured value $\pm 15\%$) fully account for sensor noise, measurement bias, and digitization error.
 
 ### Assumption 2: Process Model Kinetic Boundedness
 **Assumption**: The kinetic equation $f(d, \theta)$ conservative over-approximates the actual physical-chemical effluent response of the plant:
-$$y_{\text{plant}}(d, \theta) \le f(d, \theta) + \delta_{\text{margin}}$$
-The certifier assumes that unmodeled physical dynamics (e.g., flocculator spatial dead zones, temperature-dependent viscosity shifts, mixing turbulence) are dominated by the model's structural conservatism and the additive safety margin ($\delta_{\text{margin}} = 0.02\text{ NTU}$).
+
+$$
+y_{\text{plant}}(d, \theta) \le f(d, \theta) + \delta_{\text{margin}}
+$$
+
+The certifier assumes that unmodeled physical dynamics (e.g., flocculator spatial dead zones, temperature-dependent viscosity shifts, mixing turbulence) are dominated by the model's structural conservatism and the additive safety margin ($`\delta_{\text{margin}} = 0.02\text{ NTU}`$).
 
 ### Assumption 3: Actuator Setpoint Tracking
-**Assumption**: The physical dosing pump delivers an actual applied chemical dose $d^{\star}$ that conforms to the commanded certified dose $d_{\text{cert}}$ within a known bounded error $\Delta d$:
-$$d^{\star} \in [d_{\text{cert}} - \Delta d, d_{\text{cert}} + \Delta d]$$
+**Assumption**: The physical dosing pump delivers an actual applied chemical dose $`d^{\star}`$ that conforms to the commanded certified dose $`d_{\text{cert}}`$ within a known bounded error $\Delta d$:
+
+$$
+d^{\star} \in [d_{\text{cert}} - \Delta d, d_{\text{cert}} + \Delta d]
+$$
 
 ### Assumption 4: Deterministic Arithmetic & Execution Environment
 **Assumption**: The runtime environment (Python interpreter, underlying OS kernel, CPU) deterministically executes IEEE 754 floating-point arithmetic without hardware bit flips (e.g., cosmic ray upsets), memory corruption, or thread race conditions.

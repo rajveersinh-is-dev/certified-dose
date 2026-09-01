@@ -41,11 +41,15 @@ Water Temp (°C)      Min: 21.9 | Med: 25.0 | Max: 32.7    Min: 22.9 | Med: 25.1
 
 In industrial drinking water treatment, turbidimeters and pH probes do not report idealized mathematical points. Rather, they exhibit physical tolerances defined by manufacturer specifications and regulatory calibration procedures:
 
-1. **Turbidity ($T_{\text{in}}$)**: Under EPA Method 180.1 and ISO 7027, optical turbidimeter precision is $\pm 2\%$ under laboratory conditions, but field biofilm formation, bubble interference, and particulate settling introduce an operational tolerance of **$\pm 10\%$ of reading or $\pm 0.50\text{ NTU}$** (whichever is larger):
-   $$\Delta T = \max(0.50, 0.10 \cdot T_{\text{in}}), \quad T_{\text{interval}} = [T_{\text{in}} - \Delta T, T_{\text{in}} + \Delta T]$$
+1. **Turbidity ($`T_{\text{in}}`$)**: Under EPA Method 180.1 and ISO 7027, optical turbidimeter precision is $\pm 2\%$ under laboratory conditions, but field biofilm formation, bubble interference, and particulate settling introduce an operational tolerance of **$\pm 10\%$ of reading or $\pm 0.50\text{ NTU}$** (whichever is larger):
+
+   $$
+   \Delta T = \max(0.50, 0.10 \cdot T_{\text{in}}), \quad T_{\text{interval}} = [T_{\text{in}} - \Delta T, T_{\text{in}} + \Delta T]
+   $$
+
 2. **pH**: Standard combination glass electrodes experience liquid-junction potential shift and buffer drift of **$\pm 0.15\text{ pH}$ units**.
 3. **Temperature ($T$)**: Industrial RTD/thermistor accuracy is **$\pm 0.50^\circ\text{C}$**.
-4. **Intake Flow ($Q$)**: Ultrasonic differential transit-time flow meters exhibit **$\pm 5.0\%$** uncertainty relative to nominal intake $Q_{\text{nom}}$.
+4. **Intake Flow ($Q$)**: Ultrasonic differential transit-time flow meters exhibit **$\pm 5.0\%$** uncertainty relative to nominal intake $`Q_{\text{nom}}`$.
 
 Every point-in-time sensor reading in the 5,727 records was mapped into a four-dimensional bounding hyper-rectangle $\Theta_t$ via [`derive_disturbance_intervals`](../certified_dose/real_world.py) prior to reachability evaluation.
 
@@ -53,8 +57,8 @@ Every point-in-time sensor reading in the 5,727 records was mapped into a four-d
 
 ## 3. Evaluation Findings
 
-Both datasets were run through [`benchmarks/real_world_benchmark.py`](../benchmarks/real_world_benchmark.py) under a statutory compliance threshold of $L_{\text{compliance}} = 1.0\text{ NTU}$ (EPA Surface Water Treatment Rule ceiling). Two candidate controllers were evaluated against the safety wrapper:
-- **Baseline Heuristic Controller**: Standard empirical jar-testing rule $d = k \cdot T_{\text{in}}^{0.55} \cdot Q_{\text{rel}}^{0.2} \cdot \phi_T$.
+Both datasets were run through [`benchmarks/real_world_benchmark.py`](../benchmarks/real_world_benchmark.py) under a statutory compliance threshold of $`L_{\text{compliance}} = 1.0\text{ NTU}`$ (EPA Surface Water Treatment Rule ceiling). Two candidate controllers were evaluated against the safety wrapper:
+- **Baseline Heuristic Controller**: Standard empirical jar-testing rule $`d = k \cdot T_{\text{in}}^{0.55} \cdot Q_{\text{rel}}^{0.2} \cdot \phi_T`$.
 - **Aggressive Cost Minimizer**: AI/RL-style chemical shaving controller reducing dose by 30% to minimize OPEX.
 
 ### Summary Metrics (Updated v0.4.0)
@@ -111,10 +115,14 @@ While the **reachability mathematics held unconditionally** (zero soundness brea
 In late August, photosynthetic cyanobacteria blooms in Western Lake Erie and the lower Maumee River drove raw intake pH up to **9.30** (738 records exhibited $\text{pH} > 8.7$; with uncertainty intervals, 854 records exceeded the out-of-range boundary 8.5).
 
 *   **Model Reaction in v0.3.0**: The synthetic process model applied a quadratic pH penalty:
-    $$\phi_{\text{pH}} = 1.0 + 0.20 \cdot (\text{pH} - 7.2)^2$$
+
+    $$
+    \phi_{\text{pH}} = 1.0 + 0.20 \cdot (\text{pH} - 7.2)^2
+    $$
+
     causing the certifier to attempt to "correct" candidate doses by demanding excessive coagulant.
-*   **Physical Reality**: Alum ($\text{Al}_2(\text{SO}_4)_3$) precipitates as insoluble amorphous $\text{Al(OH)}_3(\text{s})$ only between $\text{pH } 5.0$ and $8.0$. Above $\text{pH } 8.5$, aluminum hydrolyzes into soluble aluminate ($\text{Al(OH)}_4^-$). Dosing additional alum at $\text{pH } 9.3$ without acid pre-treatment causes **dissolved aluminum breakthrough** in finished drinking water.
-*   **v0.4.0 Resolution**: Added explicit pH validity boundaries (`PH_VALID_LO = 5.0`, `PH_VALID_HI = 8.0`, `PH_OUT_OF_RANGE_HI = 8.5`) and `CertificationStatus.OUTSIDE_MODEL_VALIDITY`. When $\text{pH} > 8.5$ or $\text{pH} < 5.0$, the engine **refuses to certify** single-chemical dosing, clearly warning operators that acid pre-treatment or blending is required before coagulant dosing.
+*   **Physical Reality**: Alum ($`\text{Al}_2(\text{SO}_4)_3`$) precipitates as insoluble amorphous $`\text{Al(OH)}_3(\text{s})`$ only between $\text{pH } 5.0$ and $8.0$. Above $\text{pH } 8.5$, aluminum hydrolyzes into soluble aluminate ($`\text{Al(OH)}_4^-`$). Dosing additional alum at $\text{pH } 9.3$ without acid pre-treatment causes **dissolved aluminum breakthrough** in finished drinking water.
+*   **v0.4.0 Resolution**: Added explicit pH validity boundaries (`PH_VALID_LO = 5.0`, `PH_VALID_HI = 8.0`, `PH_OUT_OF_RANGE_HI = 8.5`) and `CertificationStatus.OUTSIDE_MODEL_VALIDITY`. When $`\text{pH} > 8.5`$ or $`\text{pH} < 5.0`$, the engine **refuses to certify** single-chemical dosing, clearly warning operators that acid pre-treatment or blending is required before coagulant dosing.
 
 ### 2. Storm Runoff Solids Overload & Sensor Uncertainty Investigation (Resolved in v0.4.0)
 
@@ -151,5 +159,5 @@ USGS telemetry is recorded every 15 minutes. However, a full-scale municipal wat
 Running `certified-dose` on 5,727 live operational telemetry records confirmed that **interval reachability guarantees worst-case regulatory compliance** under real-world sensor noise and process fluctuations, eliminating 100% of the non-compliant events that occurred under unverified controllers.
 
 ### Impact on Overall Confidence
-- **Confidence in Mathematical Soundness**: **Unchanged (100% verified)**. Across all 5,727 real records, zero bounding violations occurred ($\overline{\mathcal{R}} \ge y_{\text{true}}$ held everywhere).
-- **Confidence in Real-World Applicability**: **Clarified and refined**. The real-world data demonstrates that while the safety wrapper is reliable, the *process model* must not be treated as universal. Real municipal plants facing extreme river conditions ($\text{pH } > 8.5$ or $T_{\text{in}} > 150\text{ NTU}$) require dual-chemical actuation (acid feed) and dynamic hydraulic detention models.
+- **Confidence in Mathematical Soundness**: **Unchanged (100% verified)**. Across all 5,727 real records, zero bounding violations occurred ($`\overline{\mathcal{R}} \ge y_{\text{true}}`$ held everywhere).
+- **Confidence in Real-World Applicability**: **Clarified and refined**. The real-world data demonstrates that while the safety wrapper is reliable, the *process model* must not be treated as universal. Real municipal plants facing extreme river conditions ($`\text{pH } > 8.5`$ or $`T_{\text{in}} > 150\text{ NTU}`$) require dual-chemical actuation (acid feed) and dynamic hydraulic detention models.

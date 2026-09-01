@@ -10,22 +10,28 @@ In automated chemical dosing (such as coagulant dosing for coagulation-flocculat
 
 The physical plant dynamics are governed by a nonlinear process relation:
 
-$$y_t = f(d_t, \theta_t)$$
+$$
+y_t = f(d_t, \theta_t)
+$$
 
 where:
 - $y_t \in \mathbb{R}$ is the output performance variable (e.g., effluent turbidity in Nephelometric Turbidity Units, NTU).
 - $d_t$ is the applied chemical dose (e.g., coagulant dose in mg/L).
-- $\theta_t \in \mathbb{R}^m$ is an environmental disturbance vector representing influent water characteristics (influent turbidity $T_{in}$, flow rate $Q$, $pH$, temperature $T$).
+- $\theta_t \in \mathbb{R}^m$ is an environmental disturbance vector representing influent water characteristics (influent turbidity $`T_{\text{in}}`$, flow rate $Q$, $\text{pH}$, temperature $T$).
 
 Regulatory agencies (e.g., EPA, WHO, state authorities) mandate a strict ceiling on effluent turbidity:
 
-$$y_t \le L_{\text{compliance}} \quad (\text{e.g., } 1.0 \text{ NTU})$$
+$$
+y_t \le L_{\text{compliance}} \quad (\text{e.g., } 1.0 \text{ NTU})
+$$
 
 Standard machine learning (ML) controllers (reinforcement learning, gradient boosted regression, neural networks) optimize an objective such as:
 
-$$\min_{d_t} \mathbb{E}_{\theta \sim \mathcal{D}} \left[ \text{Cost}(d_t) + \lambda \cdot \ell(y_t) \right]$$
+$$
+\min_{d_t} \mathbb{E}_{\theta \sim \mathcal{D}} \left[ \text{Cost}(d_t) + \lambda \cdot \ell(y_t) \right]
+$$
 
-Because ML controllers optimize expected (average) values, they offer **no worst-case safety guarantees**. If an unexpected disturbance realization $\theta^{\star} \in \Theta$ occurs, an aggressive controller that minimized chemical dosage to shave cost will fail to destabilize colloidal particles, resulting in severe compliance violations.
+Because ML controllers optimize expected (average) values, they offer **no worst-case safety guarantees**. If an unexpected disturbance realization $`\theta^{\star} \in \Theta`$ occurs, an aggressive controller that minimized chemical dosage to shave cost will fail to destabilize colloidal particles, resulting in severe compliance violations.
 
 `certified-dose` solves this by introducing a formal reachability certification layer between the candidate controller and the plant actuator.
 
@@ -124,21 +130,27 @@ Our synthetic process model models two competing physical phenomena:
 
 Total effluent turbidity:
 
-$$T_{eff} = T_{\text{rem}} + T_{\text{over}}$$
+$$
+T_{\text{eff}} = T_{\text{rem}} + T_{\text{over}}
+$$
 
 ### Inclusion Monotonicity Proof
 
 By the fundamental theorem of interval arithmetic (**Inclusion Monotonicity**):
 
-$$\forall \theta \in \Theta, \quad f(d, \theta) \in \left[ f \right]\left(d, \Theta\right) = [T_{\text{eff}}^{\min}, T_{\text{eff}}^{\max}]$$
+$$
+\forall \theta \in \Theta, \quad f(d, \theta) \in \left[ f \right]\left(d, \Theta\right) = [T_{\text{eff}}^{\min}, T_{\text{eff}}^{\max}]
+$$
 
-Because each uncertain variable ($T_{in}, Q, pH, T$) appears with clean monotonic properties within the sub-expressions, evaluating $\left[ f \right]\left(d, \Theta\right)$ via our `Interval` implementation yields a **provably conservative enclosing set** containing all possible effluent realizations.
+Because each uncertain variable ($T_{\text{in}}, Q, \text{pH}, T$) appears with clean monotonic properties within the sub-expressions, evaluating $`\left[ f \right]\left(d, \Theta\right)`$ via our `Interval` implementation yields a **provably conservative enclosing set** containing all possible effluent realizations.
 
 ### Safety Margin Widening
 
-To account for machine floating-point rounding errors and potential unmodeled discretization tolerances, the reachability engine expands the upper bound by an additive margin $\delta_{\text{margin}} \ge 0$:
+To account for machine floating-point rounding errors and potential unmodeled discretization tolerances, the reachability engine expands the upper bound by an additive margin $`\delta_{\text{margin}} \ge 0`$:
 
-$$\overline{\mathcal{R}}(d) = [T_{eff}^{\min}, \; T_{eff}^{\max} + \delta_{\text{margin}}]$$
+$$
+\overline{\mathcal{R}}(d) = [T_{\text{eff}}^{\min}, \; T_{\text{eff}}^{\max} + \delta_{\text{margin}}]
+$$
 
 ---
 
@@ -161,15 +173,19 @@ graph TD
 ```
 
 1. **Acceptance Criterion**:
-   If $\sup \overline{\mathcal{R}}(d_{\text{cand}}) \le L_{\text{compliance}}$, the candidate dose is **ACCEPTED**.
+   If $`\sup \overline{\mathcal{R}}(d_{\text{cand}}) \le L_{\text{compliance}}`$, the candidate dose is **ACCEPTED**.
 
 2. **Bisection Search for Correction**:
-   If the candidate dose breaches the limit, a bounded bisection search across the admissible range $[d_{\min}, d_{\max}]$ identifies the lowest dose $d_{\text{corr}}$ such that:
-   $$\sup \overline{\mathcal{R}}(d_{\text{corr}}) \le L_{\text{compliance}}$$
+   If the candidate dose breaches the limit, a bounded bisection search across the admissible range $`[d_{\min}, d_{\max}]`$ identifies the lowest dose $`d_{\text{corr}}`$ such that:
+
+   $$
+   \sup \overline{\mathcal{R}}(d_{\text{corr}}) \le L_{\text{compliance}}
+   $$
+
    The action is tagged as **REJECTED_CORRECTED**.
 
 3. **Strict Fail-Safe Invariant**:
-   If no safe dose exists in the search domain (e.g. extreme storm surge), or if **ANY** numerical error, domain error, or NaN is detected, the certifier immediately falls back to a pre-computed safe dose $d_{\text{fallback}}$.
+   If no safe dose exists in the search domain (e.g. extreme storm surge), or if **ANY** numerical error, domain error, or NaN is detected, the certifier immediately falls back to a pre-computed safe dose $`d_{\text{fallback}}`$.
    **Under no circumstances is an unverified dose permitted to pass through.**
 
 ---

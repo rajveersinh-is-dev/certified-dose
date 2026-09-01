@@ -40,7 +40,7 @@ python benchmarks/latency_benchmark.py --quick
 - [ ] **Proof Verification ([`docs/SOUNDNESS.md`](SOUNDNESS.md))**:
   - [ ] Verify Theorem 1 (Fundamental Theorem of Interval Arithmetic).
   - [ ] Verify Theorem 2 (Monotonicity Concurrence on shared variable $\text{pH}$).
-  - [ ] Confirm that endpoint evaluation of $\phi_T(T)$ and $\phi_{\text{pH}}(\text{pH})$ preserves inclusion monotonicity.
+  - [ ] Confirm that endpoint evaluation of $`\phi_T(T)`$ and $`\phi_{\text{pH}}(\text{pH})`$ preserves inclusion monotonicity.
 - [ ] **Interval Operators ([`certified_dose/intervals.py`](../certified_dose/intervals.py))**:
   - [ ] Check `Interval.__pow__` matrix for odd, even, fractional, and negative powers.
   - [ ] Inspect division by intervals containing zero (`ZeroDivisionError`).
