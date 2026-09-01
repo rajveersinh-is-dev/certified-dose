@@ -76,6 +76,7 @@ class CertifiedDoseWrapper:
         enable_bisection: bool = True,
         dose_search_bounds: tuple[float, float] = (5.0, 50.0),
         bisection_max_iter: int = 25,
+        max_computation_time_ms: float = 50.0,
         default_uncertainty: dict[str, float] | None = None,
     ) -> None:
         """Initializes the certified dosing wrapper.
@@ -87,6 +88,7 @@ class CertifiedDoseWrapper:
             enable_bisection: If True, search for a valid safe dose when candidate is rejected.
             dose_search_bounds: (min_dose, max_dose) search range for bisection.
             bisection_max_iter: Strict upper bound on bisection iterations to prevent hangs.
+            max_computation_time_ms: Hard wall-clock latency cap for bisection search (ms).
             default_uncertainty: Relative fractional sensor uncertainty (+/- fraction).
                 Defaults to 15% turbidity, 10% flow, 0.3 pH, 2.0 C temp.
         """
@@ -96,6 +98,14 @@ class CertifiedDoseWrapper:
             raise ValueError(f"Fallback dose cannot be negative: {fallback_dose}")
         if dose_search_bounds[0] > dose_search_bounds[1]:
             raise ValueError("Invalid dose search bounds: min > max")
+        if bisection_max_iter < 0:
+            raise ValueError(
+                f"bisection_max_iter cannot be negative: {bisection_max_iter}"
+            )
+        if max_computation_time_ms <= 0:
+            raise ValueError(
+                f"Max computation time must be positive: {max_computation_time_ms}"
+            )
 
         self.engine: ReachabilityEngine = engine or ReachabilityEngine()
         self.compliance_limit: float = float(compliance_limit)
@@ -103,6 +113,7 @@ class CertifiedDoseWrapper:
         self.enable_bisection: bool = enable_bisection
         self.dose_search_bounds: tuple[float, float] = dose_search_bounds
         self.bisection_max_iter: int = bisection_max_iter
+        self.max_computation_time_ms: float = float(max_computation_time_ms)
 
         # Default relative uncertainty margins
         self.default_uncertainty: dict[str, float] = default_uncertainty or {
@@ -214,8 +225,10 @@ class CertifiedDoseWrapper:
                 self.compliance_limit,
             )
 
-            if self.enable_bisection:
-                corrected_dose, corrected_reachable = self._find_safe_dose(disturbances)
+            if self.enable_bisection and self.bisection_max_iter > 0:
+                corrected_dose, corrected_reachable = self._find_safe_dose(
+                    disturbances, start_time=start_time
+                )
                 if (
                     corrected_dose is not None
                     and corrected_reachable is not None
@@ -236,15 +249,28 @@ class CertifiedDoseWrapper:
                         computation_time_ms=elapsed_ms,
                     )
 
-            # 5. If correction disabled or could not find safe dose, fall back
+            # 5. If correction disabled, timed out, or could not find safe dose, fall back
             elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+            if elapsed_ms >= self.max_computation_time_ms:
+                fallback_reason = (
+                    f"Bisection search time budget exceeded ({elapsed_ms:.2f} ms >= {self.max_computation_time_ms:.1f} ms limit). "
+                    f"Reverted to fail-safe default dose."
+                )
+            elif not self.enable_bisection or self.bisection_max_iter == 0:
+                fallback_reason = (
+                    f"Candidate dose {proposed_dose:.2f} mg/L breached envelope "
+                    f"and fallback search is disabled or iteration cap is zero."
+                )
+            else:
+                fallback_reason = (
+                    f"Candidate dose {proposed_dose:.2f} mg/L breached envelope "
+                    f"and search could not find a compliant operating point within {self.bisection_max_iter} iterations."
+                )
+
             return self._trigger_fallback(
                 proposed_dose=proposed_dose,
                 disturbances=disturbances,
-                reason=(
-                    f"Candidate dose {proposed_dose:.2f} mg/L breached envelope "
-                    f"and search could not find a compliant operating point."
-                ),
+                reason=fallback_reason,
                 elapsed_ms=elapsed_ms,
                 candidate_set=candidate_reachable,
             )
@@ -265,22 +291,26 @@ class CertifiedDoseWrapper:
             )
 
     def _find_safe_dose(
-        self, disturbances: Mapping[str, Interval]
+        self,
+        disturbances: Mapping[str, Interval],
+        start_time: float | None = None,
     ) -> tuple[float | None, ReachableSet | None]:
         """Searches for a certified safe dose within bounds.
 
         Performs a bounded discrete search over candidate setpoints to identify
         the lowest effective dose whose reachable upper bound satisfies compliance.
 
-        Bounded loop guarantees termination within bisection_max_iter steps.
+        Bounded loop guarantees termination within bisection_max_iter steps and
+        max_computation_time_ms wall-clock budget.
         """
-        lo_bound, hi_bound = self.dose_search_bounds
+        if self.bisection_max_iter <= 0:
+            return None, None
 
-        # First evaluate test points across the domain
-        n_points = min(15, self.bisection_max_iter)
+        lo_bound, hi_bound = self.dose_search_bounds
+        n_coarse = min(15, self.bisection_max_iter)
         candidates = [
-            lo_bound + (hi_bound - lo_bound) * (i / (n_points - 1))
-            for i in range(n_points)
+            lo_bound + (hi_bound - lo_bound) * (i / max(1, n_coarse - 1))
+            for i in range(n_coarse)
         ]
 
         best_dose: float | None = None
@@ -288,10 +318,19 @@ class CertifiedDoseWrapper:
         best_effluent_hi = float("inf")
 
         for d in candidates:
+            if start_time is not None:
+                elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+                if elapsed_ms >= self.max_computation_time_ms:
+                    logger.warning(
+                        "Bisection coarse search exceeded time budget (%.2f ms >= %.2f ms). Aborting.",
+                        elapsed_ms,
+                        self.max_computation_time_ms,
+                    )
+                    return None, None
+
             try:
                 r = self.engine.compute_reachable_set(d, disturbances)
                 if r.hi <= self.compliance_limit:
-                    # Found a safe dose! Prefer the lowest safe dose to conserve chemical
                     if best_dose is None or d < best_dose:
                         best_dose = d
                         best_reachable = r
@@ -300,11 +339,22 @@ class CertifiedDoseWrapper:
             except Exception:
                 continue
 
-        # If a coarse safe dose is found, refine via bisection towards lower dose
-        if best_dose is not None:
+        # If coarse safe dose found, refine via bisection within remaining iteration budget
+        n_refine = max(0, self.bisection_max_iter - n_coarse)
+        if best_dose is not None and n_refine > 0:
             fine_lo = max(lo_bound, best_dose - 5.0)
             fine_hi = best_dose
-            for _ in range(10):
+            for _ in range(n_refine):
+                if start_time is not None:
+                    elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+                    if elapsed_ms >= self.max_computation_time_ms:
+                        logger.warning(
+                            "Bisection fine search exceeded time budget (%.2f ms >= %.2f ms). Aborting.",
+                            elapsed_ms,
+                            self.max_computation_time_ms,
+                        )
+                        return None, None
+
                 mid = (fine_lo + fine_hi) / 2.0
                 try:
                     r_mid = self.engine.compute_reachable_set(mid, disturbances)
