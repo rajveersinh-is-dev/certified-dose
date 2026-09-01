@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "certified-dose"
-version = "0.3.0"
+version = "0.4.0"
 description = "Formal reachability-analysis safety layer for process-control chemical dosing"
 readme = "README.md"
 license = { text = "MIT" }

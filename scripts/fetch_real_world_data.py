@@ -75,7 +75,7 @@ def fetch_usgs_station_data(site_id: str, period_days: int = 30) -> dict[str, An
     req = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "certified-dose-real-world-evaluation/0.3.0 (https://github.com/Raj123-0/certified-dose)"
+            "User-Agent": "certified-dose-real-world-evaluation/0.4.0 (https://github.com/Raj123-0/certified-dose)"
         },
     )
 
