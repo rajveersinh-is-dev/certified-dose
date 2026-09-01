@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2026-09-01
 
 ### Added
 - **Adversarial Edge-Case Test Suite** (`tests/test_adversarial.py`): Dedicated test suite with 7 comprehensive suites covering degenerate intervals ($w \to 0$) collapsing to exact scalar evaluation, multi-order-of-magnitude uncertainty, exact compliance limit $\epsilon$-discrimination, IEEE subnormals ($10^{-300}$) and extreme magnitudes ($10^{140}$), complete `Interval.__pow__` exponent matrix, NaN/Inf fail-safe rejection, and correlated non-independent sensor manifold over-approximation.
