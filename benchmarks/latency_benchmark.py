@@ -11,17 +11,19 @@ Outputs structured latency profiles for industrial real-time control system cert
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Any
 import argparse
 import json
 import logging
 import time
-from pathlib import Path
-from typing import Any
-
-import numpy as np
 
 from certified_dose.certifier import CertifiedDoseWrapper
 from certified_dose.intervals import Interval
+import numpy as np
+
+
+
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
@@ -168,6 +170,9 @@ def run_latency_benchmark(
 
 
 def main() -> None:
+    """Entry point — parse arguments and run the main computation.
+    
+    """
     parser = argparse.ArgumentParser(description="Run certified-dose latency benchmark")
     parser.add_argument(
         "--trials-single",
