@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 
+
 @dataclass(frozen=True)
 class PlantState:
     """Observed process state measurements.
