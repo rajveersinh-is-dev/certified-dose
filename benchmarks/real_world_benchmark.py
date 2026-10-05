@@ -7,15 +7,17 @@ Evaluates:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 import argparse
 import json
 import logging
 import sys
-from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any
 
 from certified_dose.real_world import (
+
+
     RealWorldDataset,
     evaluate_dataset_on_pipeline,
 )
@@ -27,6 +29,12 @@ logger = logging.getLogger(__name__)
 
 
 def run_benchmark() -> int:
+    """Worker function for benchmark.
+    
+    Returns:
+        int: Result of type int
+    
+    """
     parser = argparse.ArgumentParser(
         description="Run certified-dose evaluation on real-world USGS datasets."
     )

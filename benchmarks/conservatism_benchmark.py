@@ -8,20 +8,22 @@ and produces publication-quality visualization figures.
 
 from __future__ import annotations
 
-import argparse
-import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
-
-import matplotlib.pyplot as plt
-from rich.console import Console
-from rich.table import Table
+import argparse
+import json
 
 from certified_dose.certifier import CertifiedDoseWrapper
 from certified_dose.controller import AggressiveCostMinimizerController
 from certified_dose.process_model import SyntheticProcessModel
 from certified_dose.reachability import ReachabilityEngine
 from certified_dose.simulate import ClosedLoopSimulator, SimulationSummary
+from rich.console import Console
+from rich.table import Table
+import matplotlib.pyplot as plt
+
+
+
 
 console = Console()
 
@@ -266,6 +268,9 @@ def plot_benchmark_figures(
 
 
 def main() -> None:
+    """Entry point — parse arguments and run the main computation.
+    
+    """
     parser = argparse.ArgumentParser(
         description="Run conservatism and chemical overhead benchmark sweep."
     )

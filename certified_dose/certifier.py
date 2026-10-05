@@ -8,18 +8,20 @@ bounded bisection search or falls back to a guaranteed conservative default.
 
 from __future__ import annotations
 
-import logging
-import math
-import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
+import logging
+import math
+import time
 
 from certified_dose.controller import BaseController, PlantState
 from certified_dose.intervals import Interval
 from certified_dose.process_model import PhValidityStatus, SyntheticProcessModel
 from certified_dose.reachability import ReachabilityEngine, ReachableSet
+
+
 
 logger = logging.getLogger("certified_dose.certifier")
 
@@ -135,6 +137,12 @@ class ExplanationReport:
         return "\n".join(lines)
 
     def __str__(self) -> str:
+        """Str.
+        
+        Returns:
+            The computed result
+        
+        """
         return self.format_text()
 
 
@@ -740,6 +748,13 @@ class WrappedControllerProtocol:
     def __init__(
         self, certifier: CertifiedDoseWrapper, candidate_controller: BaseController
     ) -> None:
+        """Init.
+        
+        Args:
+            certifier:
+            candidate_controller:
+        
+        """
         self.certifier = certifier
         self.candidate_controller = candidate_controller
 
