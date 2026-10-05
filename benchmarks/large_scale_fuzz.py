@@ -7,21 +7,23 @@ never violated by any physically admissible input perturbation.
 
 from __future__ import annotations
 
+from dataclasses import asdict, dataclass
+from pathlib import Path
 import argparse
 import json
 import sys
 import time
-from dataclasses import asdict, dataclass
-from pathlib import Path
-
-import numpy as np
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
 
 from certified_dose.intervals import Interval
 from certified_dose.process_model import SyntheticProcessModel
 from certified_dose.reachability import ReachabilityEngine
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+import numpy as np
+
+
+
 
 console = Console()
 
@@ -182,6 +184,9 @@ def run_large_scale_fuzzing(
 
 
 def main() -> None:
+    """Entry point — parse arguments and run the main computation.
+    
+    """
     parser = argparse.ArgumentParser(
         description="Run large-scale Monte Carlo fuzzing verification."
     )
