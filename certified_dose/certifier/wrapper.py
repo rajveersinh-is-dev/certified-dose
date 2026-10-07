@@ -16,6 +16,7 @@ from certified_dose.reachability import ReachabilityEngine, ReachableSet
 
 logger = logging.getLogger("certified_dose.certifier")
 
+
 class CertifiedDoseWrapper:
     """Formal safety wrapper that wraps any candidate controller.
 
@@ -453,11 +454,11 @@ class WrappedControllerProtocol:
         self, certifier: CertifiedDoseWrapper, candidate_controller: BaseController
     ) -> None:
         """Init.
-        
+
         Args:
             certifier:
             candidate_controller:
-        
+
         """
         self.certifier = certifier
         self.candidate_controller = candidate_controller

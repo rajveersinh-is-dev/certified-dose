@@ -10,6 +10,7 @@ from typing import Any
 
 logger = logging.getLogger("certified_dose.real_world")
 
+
 @dataclass(frozen=True)
 class RealWorldRecord:
     """A single aligned operational telemetry observation."""
