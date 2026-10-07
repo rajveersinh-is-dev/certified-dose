@@ -36,7 +36,6 @@ def evaluate_dataset_on_pipeline(
         Structured evaluation metrics and record analysis.
     """
 
-
     if uncertainty_specs is None:
         uncertainty_specs = InstrumentUncertaintySpecs()
 
