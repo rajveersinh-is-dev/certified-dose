@@ -1,0 +1,3 @@
+
+## Refactor: Certifier and Real World Modules
+Refactored the largest and most complex files in the codebase (`certifier.py` and `real_world.py`) by breaking them down into well-named, single-responsibility modules within newly created `certified_dose/certifier/` and `certified_dose/real_world/` packages. `certifier.py` was split into `status.py`, `result.py`, and `wrapper.py`, while `real_world.py` was separated into `models.py`, `uncertainty.py`, and `evaluation.py`. The original public API of the modules was maintained using `__init__.py` files to export the components, ensuring backwards compatibility with existing consumers (like the dashboard and CLI). This improvement significantly enhances code readability and maintainability.
